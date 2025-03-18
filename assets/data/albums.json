@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Classic Hits",
+    "description": "30 songs for an acoustic afternoon",
+    "image": "assets/images/classic_hits.png"
+  },
+  {
+    "title": "Acoustic Vibes",
+    "description": "30 songs for a relaxing evening",
+    "image": "assets/images/acoustic_vibes.png"
+  },
+  {
+    "title": "Jazz Essentials",
+    "description": "Feel the rhythm of jazz classics",
+    "image": "assets/images/jazz_essentials.png"
+  },
+  {
+    "title": "Rock Legends",
+    "description": "Legendary rock hits for all time",
+    "image": "assets/images/rock_legends.png"
+  },
+  {
+    "title": "Chill Beats",
+    "description": "Lo-fi beats for studying and relaxing",
+    "image": "assets/images/chill_beats.png"
+  }
+]
