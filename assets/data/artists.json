@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Drake",
+    "image": "assets/images/song_1.jpg"
+  },
+  {
+    "name": "Taylor Swift",
+    "image": "assets/images/song_2.jpg"
+  },
+  {
+    "name": "The Weeknd",
+    "image": "assets/images/song_3.jpg"
+  },
+  {
+    "name": "Taylor Swift",
+    "image": "assets/images/song_4.jpg"
+  },
+  {
+    "name": "The Weeknd",
+    "image": "assets/images/song_5.jpg"
+  }
+]

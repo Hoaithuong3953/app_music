@@ -20,9 +20,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
         backgroundColor: const Color(0xFFA6B9FF),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 30), // Nút mũi tên xuống
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pop(context); // Quay lại màn hình trước
           },
         ),
         actions: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../screens/now_playing_screen.dart';
 
 class MusicPlayer extends StatefulWidget {
@@ -21,6 +22,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
+        // Khi bấm vào, bạn có thể mở lại màn hình NowPlayingScreen nếu cần
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const NowPlayingScreen()),

@@ -64,7 +64,6 @@ class LibraryScreen extends StatelessWidget {
                   _buildLibraryItem(Icons.person, "Austin Mahone", "Playlist • 56 songs"),
                   _buildLibraryItem(Icons.library_music, "Relaxing Hits", "Playlist • 150 songs"),
                 ],
-
               ),
             ),
           ],
@@ -78,7 +77,7 @@ class LibraryScreen extends StatelessWidget {
       padding: const EdgeInsets.only(right: 8.0),
       child: Chip(
         label: Text(label),
-        backgroundColor: const Color(0xFFA6B9FF), // Theme color
+        backgroundColor: const Color(0xFFA6B9FF), // Màu chủ đề chính xác
         labelStyle: const TextStyle(color: Colors.white),
       ),
     );
@@ -93,7 +92,7 @@ class LibraryScreen extends StatelessWidget {
             width: 70, // Increased for better layout
             height: 70,
             decoration: BoxDecoration(
-              color: Colors.grey.shade800,
+              color: const Color(0xFFA6B9FF), // Màu chủ đề chính xác
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 36, color: Colors.white),
@@ -108,7 +107,7 @@ class LibraryScreen extends StatelessWidget {
               ),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                style: const TextStyle(fontSize: 14, color: Color(0xFFA6B9FF)), // Màu chủ đề chính xác
               ),
             ],
           ),

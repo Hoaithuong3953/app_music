@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import '../widgets/music_card.dart';
-import '../widgets/album_card.dart';
+import '../service/user_service.dart';
+import '../widgets/artist_card.dart';
 import '../widgets/song_card.dart';
+import '../widgets/playlist_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,31 +14,50 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<dynamic> albums = [];
-  List<dynamic> music = [];
+  List<dynamic> playlists = [];
+  List<dynamic> artists = [];
   List<dynamic> songs = [];
+  String _username = "Loading...";
 
   @override
   void initState() {
     super.initState();
-    loadAlbums();
-    loadMusic();
+    _loadUserInfo();
+    loadPlaylists();
+    loadArtists();
     loadSongs();
   }
 
-  Future<void> loadAlbums() async {
-    final String response = await rootBundle.loadString('assets/data/albums.json');
+  Future<void> _loadUserInfo() async {
+    try {
+      final String baseUrl = "http://10.0.2.2:8080"; // Thay bằng URL thật của bạn
+      final userService = UserService(baseUrl: baseUrl);
+      final userData = await userService.getCurrentUser();
+      print('User Data: $userData');  // Log để xem dữ liệu trả về
+      setState(() {
+        _username = userData['response']['firstName'] ?? "User";  // Truy cập đúng trường 'response'
+      });
+    } catch (e) {
+      print("Không thể lấy thông tin người dùng: $e");
+      setState(() {
+        _username = "User"; // Mặc định nếu không lấy được dữ liệu
+      });
+    }
+  }
+
+  Future<void> loadPlaylists() async {
+    final String response = await rootBundle.loadString('assets/data/playlists.json');
     final data = json.decode(response);
     setState(() {
-      albums = data;
+      playlists = data;
     });
   }
 
-  Future<void> loadMusic() async {
-    final String response = await rootBundle.loadString('assets/data/music.json');
+  Future<void> loadArtists() async {
+    final String response = await rootBundle.loadString('assets/data/artists.json');
     final data = json.decode(response);
     setState(() {
-      music = data;
+      artists = data;
     });
   }
 
@@ -54,13 +74,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 80,
-        title: const Row(
+        title: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(Icons.music_note, color: Color(0xFFA6B9FF), size: 30),
-            SizedBox(width: 8),
-            Text("Hi, ", style: TextStyle(fontSize: 24, color: Colors.black)),
-            Text("Thuong", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black)),
+            const Icon(Icons.music_note, color: Color(0xFFA6B9FF), size: 30),
+            const SizedBox(width: 8),
+            const Text("Hi, ", style: TextStyle(fontSize: 24, color: Colors.black)),
+            Text(
+              _username,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+            ),
           ],
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -88,35 +111,41 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text("Popular", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+
+              // Popular Playlists
+              const Text("Popular Playlists", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               SizedBox(
                 height: 200,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  children: music.map((song) => MusicCard(
-                    title: song['title'],
-                    subtitle: song['description'],
-                    color: const Color(0xFFA6B9FF),
+                  children: playlists.map((playlist) => PlaylistCard(
+                    imagePath: playlist['image'],
+                    title: playlist['title'],
+                    description: playlist['description'],
                   )).toList(),
                 ),
               ),
               const SizedBox(height: 20),
-              const Text("Top Albums", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+
+              // Top Artists
+              // Top Artists Section
+              const Text("Top Artists", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               SizedBox(
-                height: 250,
+                height: 180,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  children: albums.map((album) => AlbumCard(
-                    imagePath: album['image'],
-                    title: album['title'],
-                    subtitle: album['description'],
+                  children: artists.map((artist) => ArtistCard(
+                    imagePath: artist['image'],
+                    name: artist['name'],
                   )).toList(),
                 ),
               ),
               const SizedBox(height: 20),
+
+              // Recommended Songs
               const Text("Recommended Songs", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               Column(
@@ -125,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: song['title'],
                   artist: song['artist'],
                 )).toList(),
-              ),
+              )
             ],
           ),
         ),
