@@ -1,43 +1,68 @@
 import 'package:flutter/material.dart';
 
-class LibraryScreen extends StatelessWidget {
+class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
+
+  @override
+  _LibraryScreenState createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  String selectedFilter = "Playlists"; // Trạng thái filter được chọn
+
+  final List<Map<String, dynamic>> libraryItems = [
+    {"icon": Icons.favorite, "title": "Liked Songs", "subtitle": "Playlist • 348 songs"},
+    {"icon": Icons.notifications, "title": "New Episodes", "subtitle": "Playlist • 25 songs"},
+    {"icon": Icons.music_note, "title": "Movie Soundtrack", "subtitle": "Playlist • 18 songs"},
+    {"icon": Icons.person, "title": "BTS", "subtitle": "Playlist • 124 songs"},
+    {"icon": Icons.music_note, "title": "Chill Hits", "subtitle": "Playlist • 200 songs"},
+    {"icon": Icons.person, "title": "Austin Mahone", "subtitle": "Playlist • 56 songs"},
+    {"icon": Icons.library_music, "title": "Relaxing Hits", "subtitle": "Playlist • 150 songs"},
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100], // Nền nhẹ nhàng
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Row(
-          children: [
-            const Text(
-              "Library",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-          ],
+        title: const Text(
+          "Library",
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search, size: 28),
-            onPressed: () {},
+            icon: const Icon(Icons.search, size: 28, color: Color(0xFFA6B9FF)),
+            onPressed: () {
+              // TODO: Thêm logic tìm kiếm trong library
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.add, size: 28),
-            onPressed: () {},
+            icon: const Icon(Icons.add, size: 28, color: Color(0xFFA6B9FF)),
+            onPressed: () {
+              // TODO: Thêm logic tạo playlist mới
+            },
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(50),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-            child: Row(
-              children: [
-                _buildFilterChip("Playlists"),
-                _buildFilterChip("Podcasts"),
-                _buildFilterChip("Albums"),
-                _buildFilterChip("Artists"),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip("Playlists"),
+                  _buildFilterChip("Podcasts"),
+                  _buildFilterChip("Albums"),
+                  _buildFilterChip("Artists"),
+                ],
+              ),
             ),
           ),
         ),
@@ -47,23 +72,27 @@ class LibraryScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             const Text(
               "Recently Played",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Expanded(
-              child: ListView(
-                children: [
-                  _buildLibraryItem(Icons.favorite, "Liked Songs", "Playlist • 348 songs"),
-                  _buildLibraryItem(Icons.notifications, "New Episodes", "Playlist • 25 songs"),
-                  _buildLibraryItem(Icons.music_note, "Movie Soundtrack", "Playlist • 18 songs"),
-                  _buildLibraryItem(Icons.person, "BTS", "Playlist • 124 songs"),
-                  _buildLibraryItem(Icons.music_note, "Chill Hits", "Playlist • 200 songs"),
-                  _buildLibraryItem(Icons.person, "Austin Mahone", "Playlist • 56 songs"),
-                  _buildLibraryItem(Icons.library_music, "Relaxing Hits", "Playlist • 150 songs"),
-                ],
+              child: ListView.builder(
+                itemCount: libraryItems.length,
+                itemBuilder: (context, index) {
+                  final item = libraryItems[index];
+                  return _buildLibraryItem(
+                    icon: item['icon'],
+                    title: item['title'],
+                    subtitle: item['subtitle'],
+                  );
+                },
               ),
             ),
           ],
@@ -73,45 +102,111 @@ class LibraryScreen extends StatelessWidget {
   }
 
   Widget _buildFilterChip(String label) {
+    final isSelected = selectedFilter == label;
     return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: Chip(
-        label: Text(label),
-        backgroundColor: const Color(0xFFA6B9FF), // Màu chủ đề chính xác
-        labelStyle: const TextStyle(color: Colors.white),
+      padding: const EdgeInsets.only(right: 10.0),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            selectedFilter = label;
+            // TODO: Lọc danh sách dựa trên filter
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFA6B9FF) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: isSelected ? Colors.transparent : const Color(0xFFA6B9FF),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : const Color(0xFFA6B9FF),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildLibraryItem(IconData icon, String title, String subtitle) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 70, // Increased for better layout
-            height: 70,
-            decoration: BoxDecoration(
-              color: const Color(0xFFA6B9FF), // Màu chủ đề chính xác
-              borderRadius: BorderRadius.circular(10),
+  Widget _buildLibraryItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        // TODO: Điều hướng đến chi tiết playlist/artist
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Selected: $title")),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFA6B9FF).withOpacity(0.9),
+                    const Color(0xFFA6B9FF).withOpacity(0.6),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFA6B9FF).withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 30, color: Colors.white),
             ),
-            child: Icon(icon, size: 36, color: Colors.white),
-          ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 14, color: Color(0xFFA6B9FF)), // Màu chủ đề chính xác
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

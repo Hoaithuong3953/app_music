@@ -2,26 +2,26 @@
   {
     "title": "Blinding Lights",
     "artist": "The Weeknd",
-    "image": "assets/images/song_1.jpg"
+    "image": "assets/images/songs/song_1.jpg"
   },
   {
     "title": "Shape of You",
     "artist": "Ed Sheeran",
-    "image": "assets/images/song_2.jpg"
+    "image": "assets/images/songs/song_2.jpg"
   },
   {
     "title": "Uptown Funk",
     "artist": "Bruno Mars",
-    "image": "assets/images/song_3.jpg"
+    "image": "assets/images/songs/song_3.jpg"
   },
   {
     "title": "Someone Like You",
     "artist": "Adele",
-    "image": "assets/images/song_4.jpg"
+    "image": "assets/images/songs/song_4.jpg"
   },
   {
     "title": "Havana",
     "artist": "Camila Cabello",
-    "image": "assets/images/song_5.jpg"
+    "image": "assets/images/songs/song_5.jpg"
   }
 ]

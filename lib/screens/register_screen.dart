@@ -21,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   final UserService _userService = UserService(baseUrl: 'http://10.0.2.2:8080');
 
-  // Đăng ký người dùng
   Future<void> _register() async {
     String firstName = _firstNameController.text.trim();
     String lastName = _lastNameController.text.trim();
@@ -45,17 +44,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         address: address,
       );
 
-      // Đăng ký thành công
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
 
-      // Sau khi đăng ký thành công, thay vì dùng Navigator.push, dùng Navigator.pushReplacement
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
+      }
     } catch (e) {
-      // Xử lý lỗi khi đăng ký
       setState(() {
         _errorText = "Đăng ký không thành công";
         _isLoading = false;
@@ -67,130 +65,233 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Logo ở đây
-                Image.asset(
-                  'assets/images/app_logo_2.png',
-                  height: 300,
-                ),
-
-                const Text(
-                  "Create a New Account",
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "Sign up to continue",
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 40),
-                TextField(
-                  controller: _firstNameController,
-                  decoration: InputDecoration(
-                    labelText: "First Name",
-                    prefixIcon: const Icon(Icons.person, color: Color(0xFFA6B9FF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.grey[100]!,
+              Colors.white,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Logo
+                  Image.asset(
+                    'assets/images/logo/app_logo_2.png',
+                    height: 200, // Giảm kích thước để cân đối
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Create a New Account",
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _lastNameController,
-                  decoration: InputDecoration(
-                    labelText: "Last Name",
-                    prefixIcon: const Icon(Icons.person, color: Color(0xFFA6B9FF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Sign up to continue",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: "Email",
-                    prefixIcon: const Icon(Icons.email, color: Color(0xFFA6B9FF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 40),
+                  // First Name
+                  TextField(
+                    controller: _firstNameController,
+                    decoration: InputDecoration(
+                      labelText: "First Name",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.person, color: Color(0xFFA6B9FF)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFA6B9FF), width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _mobileController,
-                  decoration: InputDecoration(
-                    labelText: "Mobile",
-                    prefixIcon: const Icon(Icons.phone, color: Color(0xFFA6B9FF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  // Last Name
+                  TextField(
+                    controller: _lastNameController,
+                    decoration: InputDecoration(
+                      labelText: "Last Name",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.person, color: Color(0xFFA6B9FF)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFA6B9FF), width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Password",
-                    prefixIcon: const Icon(Icons.lock, color: Color(0xFFA6B9FF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    errorText: _errorText,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _addressController,
-                  decoration: InputDecoration(
-                    labelText: "Address",
-                    prefixIcon: const Icon(Icons.home, color: Color(0xFFA6B9FF)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  // Email
+                  TextField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: "Email",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.email, color: Color(0xFFA6B9FF)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFA6B9FF), width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                const SizedBox(height: 10),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _register,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFA6B9FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  // Mobile
+                  TextField(
+                    controller: _mobileController,
+                    decoration: InputDecoration(
+                      labelText: "Mobile",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.phone, color: Color(0xFFA6B9FF)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFA6B9FF), width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Password
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.lock, color: Color(0xFFA6B9FF)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFA6B9FF), width: 2),
+                      ),
+                      errorText: _errorText,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Address
+                  TextField(
+                    controller: _addressController,
+                    decoration: InputDecoration(
+                      labelText: "Address",
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.home, color: Color(0xFFA6B9FF)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFA6B9FF), width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  // Nút Sign Up
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _register,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFA6B9FF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 5,
+                        shadowColor: const Color(0xFFA6B9FF).withOpacity(0.5),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : const Text(
+                        "Sign Up",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text("Sign Up", style: TextStyle(fontSize: 18, color: Colors.white)),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Dòng chuyển sang trang đăng nhập
-                TextButton(
-                  onPressed: () {
-                    // Quay lại trang đăng nhập
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    "Already have an account? Login",
-                    style: TextStyle(color: Color(0xFFA6B9FF)),
+                  const SizedBox(height: 20),
+                  // Chuyển sang Login
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: RichText(
+                      text: const TextSpan(
+                        text: "Already have an account? ",
+                        style: TextStyle(color: Colors.grey),
+                        children: [
+                          TextSpan(
+                            text: "Login",
+                            style: TextStyle(
+                              color: Color(0xFFA6B9FF),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

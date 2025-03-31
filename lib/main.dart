@@ -1,5 +1,6 @@
 import 'package:app_music/service/user_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -7,9 +8,16 @@ import 'screens/search_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/profile_screen.dart';
 import 'widgets/music_player.dart';
+import 'providers/audio_provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => AudioProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -86,10 +94,15 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(child: _screens[_selectedIndex]),
-          MusicPlayer(),
+          _screens[_selectedIndex],
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: const MusicPlayer(),
+          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

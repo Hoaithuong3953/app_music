@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user.dart';
 
 class UserService {
   final String baseUrl;
@@ -31,9 +32,9 @@ class UserService {
     );
 
     if (response.statusCode == 201) {
-      return json.decode(response.body);
+      final responseData = json.decode(response.body);
+      return responseData;
     } else {
-      // Log lỗi chi tiết khi đăng ký không thành công
       print('Đăng ký không thành công. Mã lỗi: ${response.statusCode}');
       print('Lý do: ${response.body}');
       throw Exception('Đăng ký không thành công');
@@ -55,31 +56,26 @@ class UserService {
       headers: {'Content-Type': 'application/json'},
     );
 
-    // Kiểm tra mã lỗi và log thêm thông tin chi tiết nếu không thành công
     if (response.statusCode == 200) {
       final responseData = json.decode(response.body);
       final prefs = await SharedPreferences.getInstance();
       prefs.setString('accessToken', responseData['accessToken']);
       return responseData;
     } else {
-      // Log lỗi chi tiết khi đăng nhập không thành công
       print('Đăng nhập không thành công. Mã lỗi: ${response.statusCode}');
       print('Lý do: ${response.body}');
-
-      // Bạn có thể phân tích lý do lỗi từ body response nếu có thông tin cụ thể
       try {
         final responseData = json.decode(response.body);
         print('Thông báo lỗi từ server: ${responseData['message']}');
       } catch (e) {
         print('Không thể phân tích lỗi từ response body.');
       }
-
       throw Exception('Đăng nhập không thành công');
     }
   }
 
   // Lấy thông tin người dùng hiện tại
-  Future<Map<String, dynamic>> getCurrentUser() async {
+  Future<User> getCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
     final accessToken = prefs.getString('accessToken');
 
@@ -98,8 +94,12 @@ class UserService {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      print('Dữ liệu người dùng: $data');  // Log dữ liệu nhận được
-      return data;
+      print('Dữ liệu người dùng: $data'); // Log dữ liệu nhận được
+      if (data['success'] == true) {
+        return User.fromJson(data['response']); // Sửa từ data['data'] thành data['response']
+      } else {
+        throw Exception('Failed to fetch user: ${data['message']}');
+      }
     } else {
       print('Lỗi lấy thông tin người dùng. Mã lỗi: ${response.statusCode}');
       print('Lý do: ${response.body}');

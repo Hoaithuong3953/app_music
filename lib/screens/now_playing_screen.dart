@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../managers/audio_player_manager.dart';
+import '../providers/audio_provider.dart';
 
 class NowPlayingScreen extends StatefulWidget {
   const NowPlayingScreen({super.key});
@@ -8,93 +11,112 @@ class NowPlayingScreen extends StatefulWidget {
 }
 
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
-  double _currentTime = 135;
-  final double _totalTime = 208;
-  bool _isPlaying = false; // Trạng thái phát/dừng
+  String _formatTime(double seconds) {
+    int min = (seconds ~/ 60);
+    int sec = (seconds % 60).toInt();
+    return "$min:${sec.toString().padLeft(2, '0')}";
+  }
 
   @override
   Widget build(BuildContext context) {
+    final audioProvider = Provider.of<AudioProvider>(context);
+    final audioManager = audioProvider.audioManager;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: const Color(0xFFA6B9FF),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 30), // Nút mũi tên xuống
-          onPressed: () {
-            Navigator.pop(context); // Quay lại màn hình trước
-          },
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 30),
+          onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black),
-            onPressed: () {},
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 20), // Khoảng cách trên
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16), // Giữ hình vuông bo góc
-              child: Image.asset(
-                'assets/images/song_1.jpg',
-                width: double.infinity,
-                height: MediaQuery.of(context).size.width - 40, // Đảm bảo hình vuông
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text("Blinding Lights", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text("The Weeknd", style: TextStyle(fontSize: 18, color: Colors.black54)),
-            const SizedBox(height: 10),
-            Slider(
-              value: _currentTime,
-              min: 0,
-              max: _totalTime,
-              activeColor: const Color(0xFFA6B9FF),
-              onChanged: (value) {
-                setState(() {
-                  _currentTime = value;
-                });
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("${_currentTime.toInt() ~/ 60}:${(_currentTime.toInt() % 60).toString().padLeft(2, '0')}", style: const TextStyle(color: Colors.black54)),
-                  Text("${_totalTime.toInt() ~/ 60}:${(_totalTime.toInt() % 60).toString().padLeft(2, '0')}", style: const TextStyle(color: Colors.black54)),
-                ],
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      body: ValueListenableBuilder<Map<String, String>?>(
+        valueListenable: audioManager.currentSongData,
+        builder: (context, songData, child) {
+          if (songData == null) return const Center(child: Text("Không có bài hát nào đang phát"));
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
               children: [
-                IconButton(icon: const Icon(Icons.shuffle, size: 30, color: Color(0xFFA6B9FF)), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.skip_previous, size: 40, color: Color(0xFFA6B9FF)), onPressed: () {}),
-                IconButton(
-                  icon: Icon(
-                    _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
-                    size: 60,
-                    color: const Color(0xFFA6B9FF),
+                const SizedBox(height: 20),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    songData["imagePath"] ?? 'default_image_url',
+                    width: double.infinity,
+                    height: MediaQuery.of(context).size.width - 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported),
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _isPlaying = !_isPlaying; // Chuyển trạng thái phát/dừng
-                    });
+                ),
+                const SizedBox(height: 20),
+                Text(songData["title"] ?? "Unknown",
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(songData["artist"] ?? "Unknown Artist",
+                    style: const TextStyle(fontSize: 18, color: Colors.black54)),
+                const SizedBox(height: 10),
+                ValueListenableBuilder<double>(
+                  valueListenable: audioManager.audioPosition,
+                  builder: (context, position, child) {
+                    return ValueListenableBuilder<double>(
+                      valueListenable: audioManager.totalTime,
+                      builder: (context, totalTime, child) {
+                        return Column(
+                          children: [
+                            Slider(
+                              value: position,
+                              min: 0,
+                              max: totalTime > 0 ? totalTime : 1,
+                              activeColor: const Color(0xFFA6B9FF),
+                              onChanged: audioManager.seekTo,
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(_formatTime(position), style: const TextStyle(color: Colors.black54)),
+                                Text(_formatTime(totalTime), style: const TextStyle(color: Colors.black54)),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                 ),
-                IconButton(icon: const Icon(Icons.skip_next, size: 40, color: Color(0xFFA6B9FF)), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.repeat, size: 30, color: Color(0xFFA6B9FF)), onPressed: () {}),
+                ValueListenableBuilder<bool>(
+                  valueListenable: audioManager.isPlayingNotifier,
+                  builder: (context, isPlaying, child) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.skip_previous, size: 40, color: Color(0xFFA6B9FF)),
+                          onPressed: audioProvider.playPrevious,
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                            size: 60,
+                            color: const Color(0xFFA6B9FF),
+                          ),
+                          onPressed: audioManager.togglePlayPause,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.skip_next, size: 40, color: Color(0xFFA6B9FF)),
+                          onPressed: audioProvider.playNext,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
               ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
