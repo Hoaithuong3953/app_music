@@ -1,3 +1,5 @@
+import 'package:app_music/providers/home_provider.dart';
+import 'package:app_music/providers/search_provider.dart';
 import 'package:app_music/service/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,8 +15,12 @@ import 'providers/audio_provider.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => AudioProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
+        ChangeNotifierProvider(create: (_) => AudioProvider()),
+        ChangeNotifierProvider(create: (_) => HomeProvider()),
+      ],
       child: const MyApp(),
     ),
   );

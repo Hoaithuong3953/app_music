@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/album.dart';
 import '../models/song.dart';
+import '../models/user.dart';
 import '../service/song_service.dart';
 import '../service/user_service.dart';
 import '../service/album_service.dart';
-import '../widgets/artist_card.dart';
 import '../widgets/song_card.dart';
-import '../widgets/album_card.dart'; // Đảm bảo import đúng
+import '../widgets/album_card.dart';
 import '../providers/audio_provider.dart';
+import '../providers/search_provider.dart';
+import 'search_screen.dart';
 import 'song_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,59 +22,81 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _username = "Loading...";
-  List<Song> _songs = [];
   List<Album> _albums = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadUserInfo();
-    _loadSongs();
-    _loadAlbums();
+    _loadData();
   }
 
-  Future<void> _loadUserInfo() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
     try {
       const String baseUrl = "http://10.0.2.2:8080";
       final userService = UserService(baseUrl: baseUrl);
-      final user = await userService.getCurrentUser();
+      final songService = SongService();
+      final albumService = AlbumService();
+
+      final results = await Future.wait([
+        userService.getCurrentUser(),
+        songService.fetchSongs(),
+        albumService.fetchAlbums(),
+      ]);
+
+      final user = results[0] as User;
+      final fetchedSongs = results[1] as List<Song>;
+      final fetchedAlbums = results[2] as List<Album>;
+
       setState(() {
         _username = user.firstName;
+        _albums = fetchedAlbums;
       });
+
+      Provider.of<AudioProvider>(context, listen: false).setSongs(
+        fetchedSongs.map((song) => {
+          'songUrl': song.url ?? '',
+          'title': song.title,
+          'artist': song.artist?.name ?? 'Unknown Artist',
+          'imagePath': song.coverImage ?? 'default_image_url',
+        }).toList(),
+      );
+
+      Provider.of<SearchProvider>(context, listen: false).setSongs(fetchedSongs);
     } catch (e) {
-      print("Không thể lấy thông tin người dùng: $e");
+      print("Không thể tải dữ liệu: $e");
       setState(() {
         _username = "User";
       });
     }
   }
 
-  Future<void> _loadSongs() async {
-    final songService = SongService();
-    final fetchedSongs = await songService.fetchSongs();
-    setState(() {
-      _songs = fetchedSongs;
-    });
-    Provider.of<AudioProvider>(context, listen: false).setSongs(
-      fetchedSongs.map((song) => {
-        'songUrl': song.url ?? '',
-        'title': song.title,
-        'artist': song.artist?.name ?? 'Unknown Artist',
-        'imagePath': song.coverImage ?? 'default_image_url',
-      }).toList(),
-    );
-  }
-
-  Future<void> _loadAlbums() async {
-    final albumService = AlbumService();
-    final fetchedAlbums = await albumService.fetchAlbums();
-    setState(() {
-      _albums = fetchedAlbums;
-    });
+  void _navigateToSearch() {
+    final query = _searchController.text.trim();
+    if (query.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SearchScreen(initialQuery: query),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final searchProvider = Provider.of<SearchProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context);
+    final isSearching = _searchController.text.isNotEmpty;
+    final filteredSongs = searchProvider.filteredSongs;
+    final recommendedSongs = audioProvider.songs;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -93,11 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadUserInfo();
-          await _loadSongs();
-          await _loadAlbums();
-        },
+        onRefresh: _loadData,
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -118,68 +138,93 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  child: const TextField(
+                  child: TextField(
+                    controller: _searchController,
                     decoration: InputDecoration(
                       hintText: "Search music",
-                      hintStyle: TextStyle(color: Colors.grey),
+                      hintStyle: const TextStyle(color: Colors.grey),
                       border: InputBorder.none,
-                      icon: Icon(Icons.search, color: Color(0xFFA6B9FF)),
+                      icon: const Icon(Icons.search, color: Color(0xFFA6B9FF)),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          searchProvider.updateSearchQuery("");
+                        },
+                      )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      searchProvider.updateSearchQuery(value);
+                    },
+                    onSubmitted: (_) => _navigateToSearch(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                if (isSearching) ...[
+                  // Kết quả tìm kiếm
+                  _buildSectionHeader("Search Results"),
+                  const SizedBox(height: 12),
+                  filteredSongs.isEmpty
+                      ? const Center(child: Text("No results found"))
+                      : Column(
+                    children: filteredSongs.map((song) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: SongCard(
+                          imagePath: song.coverImage ?? 'default_image_url',
+                          title: song.title,
+                          artist: song.artist?.name ?? 'Unknown Artist',
+                          songUrl: song.url ?? '',
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ] else ...[
+                  // Popular Albums
+                  _buildSectionHeader("Popular Albums"),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 200,
+                    child: _albums.isEmpty
+                        ? const Center(child: Text("No albums available"))
+                        : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _albums.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final album = _albums[index];
+                        return AlbumCard(
+                          imagePath: album.coverImageUrl ?? 'https://via.placeholder.com/160x200',
+                          title: album.title,
+                        );
+                      },
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // Popular Albums
-                _buildSectionHeader("Popular Albums", onViewAll: () {}),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 240,
-                  child: _albums.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
-                      : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _albums.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final album = _albums[index];
-                      return AlbumCard(
-                        imagePath: album.coverImageUrl ?? 'https://via.placeholder.com/120',
-                        title: album.title,
+                  // Recommended Songs
+                  _buildSectionHeader("Recommended Songs"),
+                  const SizedBox(height: 12),
+                  recommendedSongs.isEmpty
+                      ? const Center(child: Text("No songs available"))
+                      : Column(
+                    children: (recommendedSongs.length <= 7 ? recommendedSongs : recommendedSongs.sublist(0, 7))
+                        .map((song) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: SongCard(
+                          imagePath: song['imagePath'] ?? 'default_image_url',
+                          title: song['title'] ?? 'Unknown Title',
+                          artist: song['artist'] ?? 'Unknown Artist',
+                          songUrl: song['songUrl'] ?? '',
+                        ),
                       );
-                    },
+                    }).toList(),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Recommended Songs
-                _buildSectionHeader("Recommended Songs", onViewAll: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SongListScreen()),
-                  );
-                }),
-                const SizedBox(height: 12),
-                Consumer<AudioProvider>(
-                  builder: (context, audioProvider, child) {
-                    final songs = audioProvider.songs;
-                    if (songs.isEmpty) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    return Column(
-                      children: (songs.length <= 7 ? songs : songs.sublist(0, 7)).map((song) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: SongCard(
-                            imagePath: song['imagePath'] ?? 'default_image_url',
-                            title: song['title'] ?? 'Unknown Title',
-                            artist: song['artist'] ?? 'Unknown Artist',
-                            songUrl: song['songUrl'] ?? '',
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
+                ],
               ],
             ),
           ),
@@ -188,30 +233,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, {required VoidCallback onViewAll}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        GestureDetector(
-          onTap: onViewAll,
-          child: const Text(
-            "View All",
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFFA6B9FF),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
     );
   }
 }
