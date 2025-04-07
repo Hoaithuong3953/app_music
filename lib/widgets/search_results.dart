@@ -19,7 +19,7 @@ class SearchResults extends StatelessWidget {
           return ListTile(
             leading: Image.network(song.coverImage ?? 'default_image_url', width: 50, height: 50, fit: BoxFit.cover),
             title: Text(song.title),
-            subtitle: Text(song.artist?.name ?? 'Unknown Artist'),
+            subtitle: Text(song.artist?.title ?? 'Unknown Artist'),
             onTap: () {},
           );
         },

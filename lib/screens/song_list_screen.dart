@@ -28,7 +28,7 @@ class _SongListScreenState extends State<SongListScreen> {
       songs.map((song) => {
         'songUrl': song.url ?? '',
         'title': song.title,
-        'artist': song.artist?.name ?? 'Unknown Artist',
+        'artist': song.artist?.title ?? 'Unknown Artist',
         'imagePath': song.coverImage ?? 'default_image_url',
       }).toList(),
     );

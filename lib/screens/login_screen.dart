@@ -29,8 +29,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final user = await _userService.login(email: email, password: password);
+      print("Phản hồi từ login: $user"); // Debug phản hồi từ server
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
+      print("Token đã lưu: ${prefs.getString('accessToken')}"); // Debug token
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -39,8 +41,9 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      print("Lỗi đăng nhập: $e"); // Debug lỗi
       setState(() {
-        _errorText = "Đăng nhập không thành công";
+        _errorText = "Đăng nhập không thành công: $e";
         _isLoading = false;
       });
     }

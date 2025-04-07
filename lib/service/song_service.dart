@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/song.dart';
 
 class SongService {
@@ -8,7 +8,24 @@ class SongService {
 
   Future<List<Song>> fetchSongs() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/v1/song'));
+      // Lấy access token từ SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
+
+      if (accessToken == null) {
+        print("Không có access token được lưu trữ");
+        throw Exception('Không có access token');
+      }
+
+      // Thêm header Authorization vào yêu cầu
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/v1/song'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print("API response: $data"); // In dữ liệu để debug
@@ -20,6 +37,7 @@ class SongService {
         }
       } else {
         print('Error: ${response.statusCode}');
+        print('Response body: ${response.body}');
         return [];
       }
     } catch (e) {

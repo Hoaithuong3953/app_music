@@ -8,8 +8,10 @@ import '../service/user_service.dart';
 import '../service/album_service.dart';
 import '../widgets/song_card.dart';
 import '../widgets/album_card.dart';
+import '../widgets/artist_card.dart';
 import '../providers/audio_provider.dart';
 import '../providers/search_provider.dart';
+import '../providers/artist_provider.dart';
 import 'search_screen.dart';
 import 'song_list_screen.dart';
 
@@ -28,7 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   @override
@@ -44,10 +48,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final songService = SongService();
       final albumService = AlbumService();
 
+      final artistProvider = Provider.of<ArtistProvider>(context, listen: false);
+      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+      final searchProvider = Provider.of<SearchProvider>(context, listen: false);
+
       final results = await Future.wait([
         userService.getCurrentUser(),
         songService.fetchSongs(),
         albumService.fetchAlbums(),
+        artistProvider.fetchArtists(), // Bây giờ an toàn vì chạy sau build
       ]);
 
       final user = results[0] as User;
@@ -59,16 +68,29 @@ class _HomeScreenState extends State<HomeScreen> {
         _albums = fetchedAlbums;
       });
 
-      Provider.of<AudioProvider>(context, listen: false).setSongs(
-        fetchedSongs.map((song) => {
+      // Debug dữ liệu bài hát
+      print("Fetched Songs: ${fetchedSongs.map((song) => {'title': song.title, 'artist': song.artist?.id ?? song.artist}).toList()}");
+
+      // Cập nhật AudioProvider với tên ca sĩ từ ArtistProvider
+      final songsForProvider = fetchedSongs.map((song) {
+        String artistName;
+        if (song.artist == null) {
+          artistName = 'Unknown Artist';
+        } else {
+          artistName = artistProvider.getArtistNameById(song.artist!.id);
+        }
+        return {
           'songUrl': song.url ?? '',
           'title': song.title,
-          'artist': song.artist?.name ?? 'Unknown Artist',
+          'artist': artistName,
           'imagePath': song.coverImage ?? 'default_image_url',
-        }).toList(),
-      );
+        };
+      }).toList();
 
-      Provider.of<SearchProvider>(context, listen: false).setSongs(fetchedSongs);
+      audioProvider.setSongs(songsForProvider);
+      searchProvider.setSongs(fetchedSongs);
+
+      print("Songs for AudioProvider: $songsForProvider"); // Debug
     } catch (e) {
       print("Không thể tải dữ liệu: $e");
       setState(() {
@@ -93,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final searchProvider = Provider.of<SearchProvider>(context);
     final audioProvider = Provider.of<AudioProvider>(context);
+    final artistProvider = Provider.of<ArtistProvider>(context);
     final isSearching = _searchController.text.isNotEmpty;
     final filteredSongs = searchProvider.filteredSongs;
     final recommendedSongs = audioProvider.songs;
@@ -116,131 +139,182 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Thanh tìm kiếm
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+      body: Consumer<ArtistProvider>(
+        builder: (context, artistProvider, child) {
+          if (artistProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return RefreshIndicator(
+            onRefresh: _loadData,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Thanh tìm kiếm
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: "Search music",
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          border: InputBorder.none,
+                          icon: const Icon(Icons.search, color: Color(0xFFA6B9FF)),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.grey),
+                            onPressed: () {
+                              _searchController.clear();
+                              searchProvider.updateSearchQuery("");
+                            },
+                          )
+                              : null,
+                        ),
+                        onChanged: (value) {
+                          searchProvider.updateSearchQuery(value);
+                        },
+                        onSubmitted: (_) => _navigateToSearch(),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    if (isSearching) ...[
+                      _buildSectionHeader("Search Results", onViewAll: () {}),
+                      const SizedBox(height: 12),
+                      filteredSongs.isEmpty
+                          ? const Center(child: Text("No results found"))
+                          : Column(
+                        children: filteredSongs.map((song) {
+                          final artistName = song.artist != null
+                              ? artistProvider.getArtistNameById(song.artist!.id)
+                              : 'Unknown Artist';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: SongCard(
+                              imagePath: song.coverImage ?? 'default_image_url',
+                              title: song.title,
+                              artist: artistName,
+                              songUrl: song.url ?? '',
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ] else ...[
+                      _buildSectionHeader("Popular Albums", onViewAll: () {}),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 200,
+                        child: _albums.isEmpty
+                            ? const Center(child: Text("No albums available"))
+                            : ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _albums.length,
+                          separatorBuilder: (context, index) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final album = _albums[index];
+                            return AlbumCard(
+                              imagePath: album.coverImageUrl ?? 'https://via.placeholder.com/160x200',
+                              title: album.title,
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader("Popular Artists", onViewAll: () {}),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 120,
+                        child: artistProvider.artists.isEmpty
+                            ? const Center(child: Text("No artists available"))
+                            : ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: artistProvider.artists.length > 5 ? 5 : artistProvider.artists.length,
+                          separatorBuilder: (context, index) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final artist = artistProvider.artists[index];
+                            return ArtistCard(
+                              name: artist.title,
+                              imagePath: artist.avatar ?? 'default_image_url',
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildSectionHeader("Recommended Songs", onViewAll: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const SongListScreen()),
+                        );
+                      }),
+                      const SizedBox(height: 12),
+                      recommendedSongs.isEmpty
+                          ? const Center(child: Text("No songs available"))
+                          : Column(
+                        children: (recommendedSongs.length <= 7
+                            ? recommendedSongs
+                            : recommendedSongs.sublist(0, 7))
+                            .map((song) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: SongCard(
+                              imagePath: song['imagePath'] ?? 'default_image_url',
+                              title: song['title'] ?? 'Unknown Title',
+                              artist: song['artist'] ?? 'Unknown Artist',
+                              songUrl: song['songUrl'] ?? '',
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search music",
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      border: InputBorder.none,
-                      icon: const Icon(Icons.search, color: Color(0xFFA6B9FF)),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.grey),
-                        onPressed: () {
-                          _searchController.clear();
-                          searchProvider.updateSearchQuery("");
-                        },
-                      )
-                          : null,
-                    ),
-                    onChanged: (value) {
-                      searchProvider.updateSearchQuery(value);
-                    },
-                    onSubmitted: (_) => _navigateToSearch(),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-
-                if (isSearching) ...[
-                  // Kết quả tìm kiếm
-                  _buildSectionHeader("Search Results"),
-                  const SizedBox(height: 12),
-                  filteredSongs.isEmpty
-                      ? const Center(child: Text("No results found"))
-                      : Column(
-                    children: filteredSongs.map((song) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: SongCard(
-                          imagePath: song.coverImage ?? 'default_image_url',
-                          title: song.title,
-                          artist: song.artist?.name ?? 'Unknown Artist',
-                          songUrl: song.url ?? '',
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ] else ...[
-                  // Popular Albums
-                  _buildSectionHeader("Popular Albums"),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 200,
-                    child: _albums.isEmpty
-                        ? const Center(child: Text("No albums available"))
-                        : ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _albums.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final album = _albums[index];
-                        return AlbumCard(
-                          imagePath: album.coverImageUrl ?? 'https://via.placeholder.com/160x200',
-                          title: album.title,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Recommended Songs
-                  _buildSectionHeader("Recommended Songs"),
-                  const SizedBox(height: 12),
-                  recommendedSongs.isEmpty
-                      ? const Center(child: Text("No songs available"))
-                      : Column(
-                    children: (recommendedSongs.length <= 7 ? recommendedSongs : recommendedSongs.sublist(0, 7))
-                        .map((song) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: SongCard(
-                          imagePath: song['imagePath'] ?? 'default_image_url',
-                          title: song['title'] ?? 'Unknown Title',
-                          artist: song['artist'] ?? 'Unknown Artist',
-                          songUrl: song['songUrl'] ?? '',
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
+  Widget _buildSectionHeader(String title, {required VoidCallback onViewAll}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        GestureDetector(
+          onTap: onViewAll,
+          child: const Text(
+            "View All",
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFFA6B9FF),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -35,7 +35,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final response = await _userService.register(
+      // Bước 1: Đăng ký người dùng
+      await _userService.register(
         firstName: firstName,
         lastName: lastName,
         email: email,
@@ -44,9 +45,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
         address: address,
       );
 
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
+      // Bước 2: Tự động đăng nhập để lấy accessToken
+      final loginResponse = await _userService.login(
+        email: email,
+        password: password,
+      );
+      print("Phản hồi từ login: $loginResponse"); // Debug phản hồi
 
+      // Bước 3: Lưu accessToken và trạng thái đăng nhập
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('accessToken', loginResponse['accessToken']);
+      await prefs.setBool('isLoggedIn', true);
+      print("Token đã lưu: ${prefs.getString('accessToken')}"); // Debug token
+
+      // Bước 4: Chuyển sang MainScreen
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -55,7 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorText = "Đăng ký không thành công";
+        _errorText = "Đăng ký hoặc đăng nhập không thành công: $e";
         _isLoading = false;
       });
     }

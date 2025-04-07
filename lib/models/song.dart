@@ -39,7 +39,7 @@ class Song {
       title: json['title'],
       artist: json['artist'] != null
           ? (json['artist'] is String
-          ? Artist(id: json['artist'], name: '', createdAt: DateTime.now(), updatedAt: DateTime.now())
+          ? Artist(id: json['artist'], title: '', createdAt: DateTime.now(), updatedAt: DateTime.now())
           : Artist.fromJson(json['artist']))
           : null,
       album: json['album'] != null

@@ -122,11 +122,6 @@ class _SearchScreenState extends State<SearchScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_searchController.text.isEmpty) ...[
-              const Text(
-                "Browse Genres",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-              const SizedBox(height: 16),
               GenreGrid(genres: genres, genreColors: genreColors),
             ],
             if (_searchController.text.isNotEmpty) ...[
