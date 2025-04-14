@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../managers/audio_player_manager.dart';
+
+// import '../managers/audio_player_manager.dart';
 import '../providers/audio_provider.dart';
 
 class NowPlayingScreen extends StatefulWidget {

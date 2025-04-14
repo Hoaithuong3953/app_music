@@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'artist': artistName,
           'imagePath': song.coverImage ?? 'default_image_url',
         };
-      }).toList();
+        }).toList();
 
       audioProvider.setSongs(songsForProvider);
       searchProvider.setSongs(fetchedSongs);

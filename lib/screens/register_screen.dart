@@ -123,6 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextField(
                     controller: _firstNameController,
                     decoration: InputDecoration(
+
                       labelText: "First Name",
                       labelStyle: const TextStyle(color: Colors.grey),
                       prefixIcon: const Icon(Icons.person, color: Color(0xFFA6B9FF)),

@@ -1,0 +1,2 @@
+D:/Nam3/hocky2/kiemthu_giuaky/app_music/android/app/.cxx/Debug/3x58655a/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/Nam3/hocky2/kiemthu_giuaky/app_music/android/app/.cxx/Debug/3x58655a/armeabi-v7a/CMakeFiles/rebuild_cache.dir
