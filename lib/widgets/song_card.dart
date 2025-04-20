@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../managers/audio_player_manager.dart';
+import 'package:provider/provider.dart';
+import '../providers/audio_provider.dart'; // Import AudioProvider thay vì AudioPlayerManager
 
 class SongCard extends StatelessWidget {
   final String imagePath;
   final String title;
   final String artist;
   final String songUrl;
+  final int index; // Thêm index để xác định vị trí trong danh sách
 
   const SongCard({
     super.key,
@@ -13,17 +15,18 @@ class SongCard extends StatelessWidget {
     required this.title,
     required this.artist,
     required this.songUrl,
+    required this.index, // Thêm tham số index
   });
 
   @override
   Widget build(BuildContext context) {
-    final AudioPlayerManager _audioManager = AudioPlayerManager();
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
 
     return ValueListenableBuilder<Map<String, String>?>(
-      valueListenable: _audioManager.currentSongData,
+      valueListenable: audioProvider.currentSongData, // Sử dụng từ AudioProvider
       builder: (context, currentSong, child) {
         return ValueListenableBuilder<bool>(
-          valueListenable: _audioManager.isPlayingNotifier,
+          valueListenable: audioProvider.isPlayingNotifier, // Sử dụng từ AudioProvider
           builder: (context, isPlaying, child) {
             bool isCurrentPlaying = currentSong?["title"] == title && isPlaying;
 
@@ -65,7 +68,11 @@ class SongCard extends StatelessWidget {
                       size: 32,
                     ),
                     onPressed: () {
-                      _audioManager.play(songUrl, title, artist, imagePath);
+                      if (isCurrentPlaying) {
+                        audioProvider.togglePlayPause(); // Tạm dừng nếu đang phát
+                      } else {
+                        audioProvider.playSong(index); // Phát bài hát theo index
+                      }
                     },
                   ),
                 ],

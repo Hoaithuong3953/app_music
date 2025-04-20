@@ -2,38 +2,62 @@ import 'package:app_music/models/song.dart';
 
 class Genre {
   final String id;
-  final String name;
+  final String? title;
   final String? description;
-  final String? slugify;
-  final List<Song>? songs; // Danh sách tham chiếu Song
+  final String? coverImage;
+  final List<Song>? songs;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   Genre({
     required this.id,
-    required this.name,
+    this.title,
     this.description,
-    this.slugify,
+    this.coverImage,
     this.songs,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory Genre.fromJson(Map<String, dynamic> json) {
-    return Genre(
-      id: json['_id'],
-      name: json['name'],
-      description: json['description'],
-      slugify: json['slugify'],
-      songs: json['songs'] != null
-          ? (json['songs'] as List)
-          .map((song) => song is String
-          ? Song(id: song, title: '', createdAt: DateTime.now(), updatedAt: DateTime.now())
-          : Song.fromJson(song))
-          .toList()
-          : null,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-    );
+    try {
+      if (json['_id'] == null) {
+        throw const FormatException('Missing required field: _id');
+      }
+
+      return Genre(
+        id: json['_id'],
+        title: json['title'] ?? 'Unknown Genre',
+        description: json['description'],
+        coverImage: json['coverImage'],
+        songs: json['songs'] != null
+            ? (json['songs'] as List)
+            .map((s) {
+          try {
+            return Song.fromJson(s);
+          } catch (e) {
+            return null;
+          }
+        })
+            .where((s) => s != null)
+            .cast<Song>()
+            .toList()
+            : null,
+        createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+        updatedAt: DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      );
+    } catch (e) {
+      throw FormatException('Error parsing Genre JSON: $e');
+    }
   }
+
+  Map<String, dynamic> toJson() => {
+    '_id': id,
+    'title': title,
+    'description': description,
+    'coverImage': coverImage,
+    'songs': songs?.map((s) => s.toJson()).toList(),
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 }

@@ -37,7 +37,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isLoggedIn = false;
-  final userService = UserService(baseUrl: 'http://10.0.2.2:8080');
+  final UserService userService = UserService(baseUrl: 'http://10.0.2.2:8080');
 
   @override
   void initState() {
@@ -46,12 +46,47 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _checkLoginStatus() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final prefs = await SharedPreferences.getInstance();
+    final accessToken = prefs.getString('accessToken');
 
-    setState(() {
-      _isLoggedIn = isLoggedIn;
-    });
+    if (accessToken == null) {
+      setState(() {
+        _isLoggedIn = false;
+      });
+      return;
+    }
+
+    // Có token, thử lấy thông tin người dùng từ API
+    try {
+      final user = await userService.getCurrentUser();
+      if (user != null) {
+        setState(() {
+          _isLoggedIn = true;
+        });
+      } else {
+        // Token không hợp lệ, xóa token và user_data
+        await prefs.remove('accessToken');
+        await prefs.remove('user_data');
+        setState(() {
+          _isLoggedIn = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error checking login status: $e");
+      // Nếu API thất bại, thử dùng dữ liệu từ SharedPreferences
+      final userJson = prefs.getString('user_data');
+      if (userJson != null) {
+        setState(() {
+          _isLoggedIn = true;
+        });
+      } else {
+        // Không có dữ liệu user, xóa token và chuyển hướng đến LoginScreen
+        await prefs.remove('accessToken');
+        setState(() {
+          _isLoggedIn = false;
+        });
+      }
+    }
   }
 
   @override
@@ -96,68 +131,78 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      body: Column(
         children: [
-          _screens[_selectedIndex],
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MusicPlayer(),
+          // Nội dung chính của màn hình (có thể cuộn)
+          Expanded(
+            child: _screens[_selectedIndex],
+          ),
+          // MusicPlayer và BottomNavigationBar ở dưới cùng
+          const MusicPlayer(),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFA6B9FF), Color(0xFF8A9EFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              selectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.normal,
+                fontSize: 12,
+              ),
+              items: [
+                BottomNavigationBarItem(
+                  icon: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.home, size: _selectedIndex == 0 ? 30 : 24),
+                  ),
+                  label: "Home",
+                ),
+                BottomNavigationBarItem(
+                  icon: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.search, size: _selectedIndex == 1 ? 30 : 24),
+                  ),
+                  label: "Search",
+                ),
+                BottomNavigationBarItem(
+                  icon: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.library_music, size: _selectedIndex == 2 ? 30 : 24),
+                  ),
+                  label: "Library",
+                ),
+                BottomNavigationBarItem(
+                  icon: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.person, size: _selectedIndex == 3 ? 30 : 24),
+                  ),
+                  label: "Profile",
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFA6B9FF), Color(0xFF8A9EFF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          backgroundColor: Colors.transparent, // Để gradient hiển thị
-          elevation: 0, // Tắt elevation mặc định để dùng boxShadow
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white70,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.normal,
-            fontSize: 12,
-          ),
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home, size: _selectedIndex == 0 ? 30 : 24),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.search, size: _selectedIndex == 1 ? 30 : 24),
-              label: "Search",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.library_music, size: _selectedIndex == 2 ? 30 : 24),
-              label: "Library",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person, size: _selectedIndex == 3 ? 30 : 24),
-              label: "Profile",
-            ),
-          ],
-        ),
       ),
     );
   }

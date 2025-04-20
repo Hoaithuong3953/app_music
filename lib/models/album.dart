@@ -1,16 +1,15 @@
 import 'package:app_music/models/song.dart';
-
-import 'artist.dart';
-import 'genre.dart';
+import 'package:app_music/models/artist.dart';
+import 'package:app_music/models/genre.dart';
 
 class Album {
   final String id;
   final String title;
   final String slugify;
-  final String? coverImageUrl;
-  final Artist? artist; // Tham chiếu Artist
-  final Genre? genre;   // Tham chiếu Genre
-  final List<Song>? songs; // Danh sách tham chiếu Song
+  final String? coverImageURL;
+  final Artist? artist;
+  final Genre? genre;
+  final List<Song>? songs;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -18,7 +17,7 @@ class Album {
     required this.id,
     required this.title,
     required this.slugify,
-    this.coverImageUrl,
+    this.coverImageURL,
     this.artist,
     this.genre,
     this.songs,
@@ -27,30 +26,34 @@ class Album {
   });
 
   factory Album.fromJson(Map<String, dynamic> json) {
-    return Album(
-      id: json['_id'],
-      title: json['title'],
-      slugify: json['slugify'],
-      coverImageUrl: json['coverImageURL'],
-      artist: json['artist'] != null
-          ? (json['artist'] is String
-          ? Artist(id: json['artist'], title: '', createdAt: DateTime.now(), updatedAt: DateTime.now())
-          : Artist.fromJson(json['artist']))
-          : null,
-      genre: json['genre'] != null
-          ? (json['genre'] is String
-          ? Genre(id: json['genre'], name: '', createdAt: DateTime.now(), updatedAt: DateTime.now())
-          : Genre.fromJson(json['genre']))
-          : null,
-      songs: json['songs'] != null
-          ? (json['songs'] as List)
-          .map((song) => song is String
-          ? Song(id: song, title: '', createdAt: DateTime.now(), updatedAt: DateTime.now())
-          : Song.fromJson(song))
-          .toList()
-          : null,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-    );
+    try {
+      return Album(
+        id: json['_id'],
+        title: json['title'],
+        slugify: json['slugify'],
+        coverImageURL: json['coverImageURL'],
+        artist: json['artist'] != null ? Artist.fromJson(json['artist']) : null,
+        genre: json['genre'] != null ? Genre.fromJson(json['genre']) : null,
+        songs: json['songs'] != null
+            ? (json['songs'] as List).map((song) => Song.fromJson(song)).toList()
+            : null,
+        createdAt: DateTime.parse(json['createdAt']),
+        updatedAt: DateTime.parse(json['updatedAt']),
+      );
+    } catch (e) {
+      throw FormatException('Error parsing Album JSON: $e');
+    }
   }
+
+  Map<String, dynamic> toJson() => {
+    '_id': id,
+    'title': title,
+    'slugify': slugify,
+    'coverImageURL': coverImageURL,
+    'artist': artist?.id,
+    'genre': genre?.id,
+    'songs': songs?.map((song) => song.id).toList(),
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 }

@@ -59,7 +59,8 @@ class UserService {
     if (response.statusCode == 200) {
       final responseData = json.decode(response.body);
       final prefs = await SharedPreferences.getInstance();
-      prefs.setString('accessToken', responseData['accessToken']);
+      await prefs.setString('accessToken', responseData['accessToken']);
+      await prefs.setString('user_data', json.encode(responseData['userData']));
       return responseData;
     } else {
       print('Đăng nhập không thành công. Mã lỗi: ${response.statusCode}');
@@ -75,35 +76,51 @@ class UserService {
   }
 
   // Lấy thông tin người dùng hiện tại
-  Future<User> getCurrentUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString('accessToken');
+  Future<User?> getCurrentUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
 
-    if (accessToken == null) {
-      throw Exception('Không có access token');
-    }
-
-    final url = Uri.parse('$baseUrl/api/v1/user/current');
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      print('Dữ liệu người dùng: $data'); // Log dữ liệu nhận được
-      if (data['success'] == true) {
-        return User.fromJson(data['response']); // Sửa từ data['data'] thành data['response']
-      } else {
-        throw Exception('Failed to fetch user: ${data['message']}');
+      if (accessToken == null) {
+        print('Không có access token');
+        return null;
       }
-    } else {
-      print('Lỗi lấy thông tin người dùng. Mã lỗi: ${response.statusCode}');
-      print('Lý do: ${response.body}');
-      throw Exception('Lỗi lấy thông tin người dùng');
+
+      print('Token used for getCurrentUser: $accessToken');
+
+      final url = Uri.parse('$baseUrl/api/v1/user/current');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print('Response from getCurrentUser: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Dữ liệu người dùng: $data');
+        if (data['success'] == true) {
+          final userData = data['response'] ?? data['userData'];
+          if (userData == null) {
+            print('User data not found in response');
+            return null;
+          }
+          return User.fromJson(userData);
+        } else {
+          print('Failed to fetch user: ${data['message']}');
+          return null;
+        }
+      } else {
+        print('Lỗi lấy thông tin người dùng. Mã lỗi: ${response.statusCode}');
+        print('Lý do: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Error in getCurrentUser: $e');
+      return null;
     }
   }
 }

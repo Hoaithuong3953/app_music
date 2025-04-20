@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/album.dart';
 import '../models/song.dart';
 import '../models/user.dart';
@@ -14,6 +17,8 @@ import '../providers/search_provider.dart';
 import '../providers/artist_provider.dart';
 import 'search_screen.dart';
 import 'song_list_screen.dart';
+import 'album_list_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,35 +46,81 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<User?> _loadUserFromPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('user_data');
+    if (userJson != null) {
+      final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+      return User.fromJson(userMap);
+    }
+    return null;
+  }
+
+  Future<User?> _fetchUser() async {
+    const String baseUrl = "http://10.0.2.2:8080";
+    final userService = UserService(baseUrl: baseUrl);
+    User? user = await userService.getCurrentUser();
+
+    if (user == null) {
+      debugPrint("User is null from API. Trying to load from SharedPreferences.");
+      user = await _loadUserFromPreferences();
+    }
+
+    return user;
+  }
+
   Future<void> _loadData() async {
     try {
-      const String baseUrl = "http://10.0.2.2:8080";
-      final userService = UserService(baseUrl: baseUrl);
+      // Lấy thông tin người dùng
+      User? user = await _fetchUser();
+
+      if (user == null) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+        return;
+      }
+
+      // Lấy dữ liệu bài hát và album
       final songService = SongService();
       final albumService = AlbumService();
-
       final artistProvider = Provider.of<ArtistProvider>(context, listen: false);
       final audioProvider = Provider.of<AudioProvider>(context, listen: false);
       final searchProvider = Provider.of<SearchProvider>(context, listen: false);
 
-      final results = await Future.wait([
-        userService.getCurrentUser(),
-        songService.fetchSongs(),
-        albumService.fetchAlbums(),
-        artistProvider.fetchArtists(), // Bây giờ an toàn vì chạy sau build
-      ]);
+      List<Song> fetchedSongs = [];
+      List<Album> fetchedAlbums = [];
 
-      final user = results[0] as User;
-      final fetchedSongs = results[1] as List<Song>;
-      final fetchedAlbums = results[2] as List<Album>;
+      try {
+        fetchedSongs = await songService.fetchSongs();
+      } catch (e) {
+        debugPrint("Failed to fetch songs: $e");
+      }
 
+      try {
+        fetchedAlbums = await albumService.fetchAlbums();
+      } catch (e) {
+        debugPrint("Failed to fetch albums: $e");
+      }
+
+      try {
+        await artistProvider.fetchArtists();
+      } catch (e) {
+        debugPrint("Failed to fetch artists: $e");
+      }
+
+      // Cập nhật state
       setState(() {
-        _username = user.firstName;
+        _username = user.firstName.trim().isNotEmpty
+            ? user.firstName
+            : (user.email.trim().isNotEmpty
+            ? user.email
+            : "User");
         _albums = fetchedAlbums;
       });
-
-      // Debug dữ liệu bài hát
-      print("Fetched Songs: ${fetchedSongs.map((song) => {'title': song.title, 'artist': song.artist?.id ?? song.artist}).toList()}");
 
       // Cập nhật AudioProvider với tên ca sĩ từ ArtistProvider
       final songsForProvider = fetchedSongs.map((song) {
@@ -89,13 +140,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
       audioProvider.setSongs(songsForProvider);
       searchProvider.setSongs(fetchedSongs);
-
-      print("Songs for AudioProvider: $songsForProvider"); // Debug
     } catch (e) {
-      print("Không thể tải dữ liệu: $e");
+      debugPrint("Unexpected error loading data: $e");
       setState(() {
         _username = "User";
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Unexpected error: $e")),
+      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 
@@ -129,10 +187,10 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const Icon(Icons.music_note, color: Color(0xFFA6B9FF), size: 30),
             const SizedBox(width: 8),
-            const Text("Hi, ", style: TextStyle(fontSize: 24, color: Colors.black)),
             Text(
-              _username,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+              "Hi, $_username",
+              style: const TextStyle(fontSize: 24, color: Colors.black),
+              semanticsLabel: "Hi, $_username",
             ),
           ],
         ),
@@ -208,12 +266,18 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: song.title,
                               artist: artistName,
                               songUrl: song.url ?? '',
+                              index: audioProvider.songs.indexWhere((s) => s['songUrl'] == song.url),
                             ),
                           );
                         }).toList(),
                       ),
                     ] else ...[
-                      _buildSectionHeader("Popular Albums", onViewAll: () {}),
+                      _buildSectionHeader("Popular Albums", onViewAll: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AlbumListScreen()),
+                        );
+                      }),
                       const SizedBox(height: 12),
                       SizedBox(
                         height: 200,
@@ -221,12 +285,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? const Center(child: Text("No albums available"))
                             : ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _albums.length,
+                          itemCount: _albums.length > 5 ? 5 : _albums.length,
                           separatorBuilder: (context, index) => const SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final album = _albums[index];
                             return AlbumCard(
-                              imagePath: album.coverImageUrl ?? 'https://via.placeholder.com/160x200',
+                              imagePath: album.coverImageURL ?? 'https://via.placeholder.com/160x200',
                               title: album.title,
                             );
                           },
@@ -234,7 +298,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      _buildSectionHeader("Popular Artists", onViewAll: () {}),
+                      _buildSectionHeader("Popular Artists", onViewAll: () {
+                        // Navigator.push(
+                        //   context,
+                        //   MaterialPageRoute(builder: (context) => const ArtistListScreen()),
+                        // );
+                      }),
                       const SizedBox(height: 12),
                       SizedBox(
                         height: 120,
@@ -265,10 +334,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       recommendedSongs.isEmpty
                           ? const Center(child: Text("No songs available"))
                           : Column(
-                        children: (recommendedSongs.length <= 7
-                            ? recommendedSongs
-                            : recommendedSongs.sublist(0, 7))
-                            .map((song) {
+                        children: recommendedSongs.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final song = entry.value;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: SongCard(
@@ -276,6 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: song['title'] ?? 'Unknown Title',
                               artist: song['artist'] ?? 'Unknown Artist',
                               songUrl: song['songUrl'] ?? '',
+                              index: index,
                             ),
                           );
                         }).toList(),

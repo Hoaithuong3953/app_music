@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../managers/audio_player_manager.dart';
-import '../providers/audio_provider.dart';
+import '../providers/audio_provider.dart'; // Chỉ cần import AudioProvider
 
 class NowPlayingScreen extends StatefulWidget {
   const NowPlayingScreen({super.key});
@@ -20,7 +19,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   @override
   Widget build(BuildContext context) {
     final audioProvider = Provider.of<AudioProvider>(context);
-    final audioManager = audioProvider.audioManager;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -33,9 +31,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
         ),
       ),
       body: ValueListenableBuilder<Map<String, String>?>(
-        valueListenable: audioManager.currentSongData,
+        valueListenable: audioProvider.currentSongData, // Truy cập trực tiếp từ audioProvider
         builder: (context, songData, child) {
-          if (songData == null) return const Center(child: Text("Không có bài hát nào đang phát"));
+          if (songData == null) {
+            return const Center(child: Text("Không có bài hát nào đang phát"));
+          }
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -53,16 +53,20 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(songData["title"] ?? "Unknown",
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                Text(songData["artist"] ?? "Unknown Artist",
-                    style: const TextStyle(fontSize: 18, color: Colors.black54)),
+                Text(
+                  songData["title"] ?? "Unknown",
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  songData["artist"] ?? "Unknown Artist",
+                  style: const TextStyle(fontSize: 18, color: Colors.black54),
+                ),
                 const SizedBox(height: 10),
                 ValueListenableBuilder<double>(
-                  valueListenable: audioManager.audioPosition,
+                  valueListenable: audioProvider.audioPosition, // Truy cập trực tiếp
                   builder: (context, position, child) {
                     return ValueListenableBuilder<double>(
-                      valueListenable: audioManager.totalTime,
+                      valueListenable: audioProvider.totalTime, // Truy cập trực tiếp
                       builder: (context, totalTime, child) {
                         return Column(
                           children: [
@@ -71,7 +75,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                               min: 0,
                               max: totalTime > 0 ? totalTime : 1,
                               activeColor: const Color(0xFFA6B9FF),
-                              onChanged: audioManager.seekTo,
+                              onChanged: audioProvider.seekTo, // Gọi trực tiếp từ audioProvider
                             ),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -87,14 +91,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   },
                 ),
                 ValueListenableBuilder<bool>(
-                  valueListenable: audioManager.isPlayingNotifier,
+                  valueListenable: audioProvider.isPlayingNotifier, // Truy cập trực tiếp
                   builder: (context, isPlaying, child) {
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
                           icon: const Icon(Icons.skip_previous, size: 40, color: Color(0xFFA6B9FF)),
-                          onPressed: audioProvider.playPrevious,
+                          onPressed: audioProvider.playPrevious, // Gọi từ audioProvider
                         ),
                         IconButton(
                           icon: Icon(
@@ -102,11 +106,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                             size: 60,
                             color: const Color(0xFFA6B9FF),
                           ),
-                          onPressed: audioManager.togglePlayPause,
+                          onPressed: audioProvider.togglePlayPause, // Gọi từ audioProvider
                         ),
                         IconButton(
                           icon: const Icon(Icons.skip_next, size: 40, color: Color(0xFFA6B9FF)),
-                          onPressed: audioProvider.playNext,
+                          onPressed: audioProvider.playNext, // Gọi từ audioProvider
                         ),
                       ],
                     );

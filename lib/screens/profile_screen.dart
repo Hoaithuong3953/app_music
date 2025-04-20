@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/login_screen.dart';
 import '../service/user_service.dart';
+import '../models/user.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,21 +22,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserInfo();
   }
 
+  Future<User?> _loadUserFromPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('user_data');
+    if (userJson != null) {
+      final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+      return User.fromJson(userMap);
+    }
+    return null;
+  }
+
   Future<void> _loadUserInfo() async {
     try {
       const String baseUrl = "http://10.0.2.2:8080";
       final userService = UserService(baseUrl: baseUrl);
-      final user = await userService.getCurrentUser();
+      User? user = await userService.getCurrentUser();
+
+      if (user == null) {
+        debugPrint("User is null from API. Trying to load from SharedPreferences.");
+        user = await _loadUserFromPreferences();
+      }
+
+      if (user == null) {
+        // Không có dữ liệu user, chuyển hướng đến màn hình đăng nhập
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+        return;
+      }
+
+      // Gán vào biến không nullable để đảm bảo an toàn null
+      final nonNullUser = user;
+
       setState(() {
-        _username = user.firstName; // Truy cập trực tiếp thuộc tính của User
-        _email = user.email;
+        _username = nonNullUser.firstName.trim().isNotEmpty
+            ? nonNullUser.firstName
+            : (nonNullUser.email.trim().isNotEmpty
+            ? nonNullUser.email
+            : "Unknown User");
+        _email = nonNullUser.email.trim().isNotEmpty ? nonNullUser.email : "Unknown Email";
       });
     } catch (e) {
-      print("Lỗi khi lấy thông tin người dùng: $e");
+      debugPrint("Lỗi khi tải thông tin người dùng: $e");
       setState(() {
         _username = "Unknown User";
         _email = "Unknown Email";
       });
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 

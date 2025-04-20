@@ -4,7 +4,7 @@ class User {
   final String lastName;
   final String email;
   final String mobile;
-  final String password; // Mật khẩu đã mã hóa
+  final String? password;
   final String role;
   final String? address;
   final bool isBlocked;
@@ -22,7 +22,7 @@ class User {
     required this.lastName,
     required this.email,
     required this.mobile,
-    required this.password,
+    this.password, // Không bắt buộc
     this.role = 'user',
     this.address,
     this.isBlocked = false,
@@ -36,27 +36,66 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['_id'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
-      email: json['email'],
-      mobile: json['mobile'],
-      password: json['password'],
-      role: json['role'] ?? 'user',
-      address: json['address'],
-      isBlocked: json['isBlocked'] ?? false,
-      refreshToken: json['refreshToken'],
-      passwordChangedAt: json['passwordChangedAt'] != null
-          ? DateTime.parse(json['passwordChangedAt'])
-          : null,
-      passwordResetToken: json['passwordResetToken'],
-      passwordResetExpires: json['passwordResetExpires'] != null
-          ? DateTime.parse(json['passwordResetExpires'])
-          : null,
-      registerToken: json['registerToken'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-    );
+    try {
+      // Kiểm tra các trường bắt buộc (bỏ password)
+      if (json['_id'] == null ||
+          json['firstName'] == null ||
+          json['lastName'] == null ||
+          json['email'] == null ||
+          json['mobile'] == null) {
+        throw FormatException('Missing required fields in User JSON');
+      }
+
+      // Hàm hỗ trợ để phân tích ngày, hỗ trợ cả ISO 8601 và timestamp
+      DateTime? parseDate(dynamic value) {
+        if (value == null) return null;
+        if (value is String) {
+          return DateTime.tryParse(value);
+        } else if (value is int) {
+          return DateTime.fromMillisecondsSinceEpoch(value);
+        }
+        return null;
+      }
+
+      return User(
+        id: json['_id'],
+        firstName: json['firstName'],
+        lastName: json['lastName'],
+        email: json['email'],
+        mobile: json['mobile'],
+        password: json['password'], // Có thể null
+        role: json['role'] ?? 'user',
+        address: json['address'],
+        isBlocked: json['isBlocked'] ?? false,
+        refreshToken: json['refreshToken'],
+        passwordChangedAt: parseDate(json['passwordChangedAt']),
+        passwordResetToken: json['passwordResetToken'],
+        passwordResetExpires: parseDate(json['passwordResetExpires']),
+        registerToken: json['registerToken'],
+        createdAt: DateTime.parse(json['createdAt']),
+        updatedAt: DateTime.parse(json['updatedAt']),
+      );
+    } catch (e) {
+      throw FormatException('Error parsing User JSON: $e');
+    }
   }
+
+  Map<String, dynamic> toJson() => {
+    '_id': id,
+    'firstName': firstName,
+    'lastName': lastName,
+    'email': email,
+    'mobile': mobile,
+    'password': password,
+    'role': role,
+    'address': address,
+    'isBlocked': isBlocked,
+    'refreshToken': refreshToken,
+    'passwordChangedAt': passwordChangedAt?.toIso8601String(),
+    'passwordResetToken': passwordResetToken,
+    'passwordResetExpires': passwordResetExpires?.toIso8601String(),
+    'registerToken': registerToken,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 }
