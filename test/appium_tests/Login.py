@@ -6,6 +6,9 @@ from appium.webdriver.common.appiumby import AppiumBy
 from selenium.common.exceptions import WebDriverException, NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from openpyxl import Workbook, load_workbook
+from datetime import datetime
+import os
 
 capabilities = dict(
     platformName='Android',
@@ -31,6 +34,37 @@ class TestLoginFunction(unittest.TestCase):
             print(f"❌ Lỗi khi khởi động driver: {e}")
             self.driver = None
             raise
+
+        # Chuẩn bị thư mục và file Excel
+        self.excel_dir = "result"
+        self.excel_file = os.path.join(self.excel_dir, "result_login.xlsx")
+        self.init_excel()
+
+    def init_excel(self):
+        """Khởi tạo thư mục result và file Excel nếu chưa tồn tại"""
+        if not os.path.exists(self.excel_dir):
+            os.makedirs(self.excel_dir)
+            print(f"✅ Đã tạo thư mục: {self.excel_dir}")
+
+        if not os.path.exists(self.excel_file):
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Login Results"
+            ws.append(["Test Case", "Email", "Password", "Result", "Status", "Timestamp"])
+            wb.save(self.excel_file)
+        print(f"✅ File Excel: {self.excel_file}")
+
+    def save_to_excel(self, test_case, email, password, result, status):
+        """Lưu kết quả vào file Excel"""
+        try:
+            wb = load_workbook(self.excel_file)
+            ws = wb["Login Results"]
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ws.append([test_case, email, password, result, status, timestamp])
+            wb.save(self.excel_file)
+            print(f"✅ Đã lưu kết quả vào Excel: {test_case}, {email}, {password}, {result}, {status}")
+        except Exception as e:
+            print(f"⚠️ Lỗi khi lưu vào Excel: {e}")
 
     def tearDown(self) -> None:
         if self.driver:
@@ -98,16 +132,44 @@ class TestLoginFunction(unittest.TestCase):
                         (AppiumBy.XPATH, "//*[@content-desc[contains(., 'Đăng nhập không thành công')]]")
                     )
                 )
-                self.fail(f"❌ Đăng nhập thất bại với thông tin đúng: {error_message.get_attribute('content-desc')}")
+                result = error_message.get_attribute('content-desc')
+                status = "FAILED"
+                self.fail(f"❌ Đăng nhập thất bại với thông tin đúng: {result}")
             except:
+                result = "Đăng nhập thành công (không có thông báo lỗi)"
+                status = "PASSED"
                 print("✅ Đăng nhập thành công (không có thông báo lỗi)!")
+
+            # Lưu kết quả vào Excel
+            self.save_to_excel(
+                test_case="Successful Login",
+                email="khai@gmail.com",
+                password="123456",
+                result=result,
+                status=status
+            )
+
         except NoSuchElementException as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
+            self.save_to_excel(
+                test_case="Successful Login",
+                email="khai@gmail.com",
+                password="123456",
+                result=f"Lỗi: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Không tìm thấy phần tử cần thiết: {e}")
         except Exception as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
+            self.save_to_excel(
+                test_case="Successful Login",
+                email="khai@gmail.com",
+                password="123456",
+                result=f"Lỗi: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Lỗi không xác định: {e}")
 
     def test_failed_login(self):
@@ -156,14 +218,40 @@ class TestLoginFunction(unittest.TestCase):
                 )
             )
             self.assertTrue(error_message.is_displayed(), "Không hiển thị lỗi khi đăng nhập sai.")
+            result = error_message.get_attribute('content-desc')
+            status = "PASSED"
             print("✅ Đăng nhập thất bại như mong đợi.")
+
+            # Lưu kết quả vào Excel
+            self.save_to_excel(
+                test_case="Failed Login",
+                email="wrong@example.com",
+                password="wrongpassword",
+                result=result,
+                status=status
+            )
+
         except NoSuchElementException as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
+            self.save_to_excel(
+                test_case="Failed Login",
+                email="wrong@example.com",
+                password="wrongpassword",
+                result=f"Lỗi: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Không tìm thấy phần tử: {e}")
         except Exception as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
+            self.save_to_excel(
+                test_case="Failed Login",
+                email="wrong@example.com",
+                password="wrongpassword",
+                result=f"Lỗi: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Lỗi không xác định: {e}")
 
 if __name__ == "__main__":
