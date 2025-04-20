@@ -6,7 +6,6 @@ import '../models/user.dart';
 import '../service/song_service.dart';
 import '../service/user_service.dart';
 import '../service/album_service.dart';
-import '../widgets/song_card.dart';
 import '../widgets/album_card.dart';
 import '../widgets/artist_card.dart';
 import '../providers/audio_provider.dart';
@@ -14,6 +13,82 @@ import '../providers/search_provider.dart';
 import '../providers/artist_provider.dart';
 import 'search_screen.dart';
 import 'song_list_screen.dart';
+
+// Định nghĩa SongCard trực tiếp trong home_screen.dart
+class SongCard extends StatelessWidget {
+  final String imagePath;
+  final String title;
+  final String artist;
+  final String songUrl;
+
+  const SongCard({
+    super.key,
+    required this.imagePath,
+    required this.title,
+    required this.artist,
+    required this.songUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          imagePath,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note),
+        ),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        artist,
+        style: const TextStyle(fontSize: 14, color: Colors.black54),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Semantics(
+        label: 'play_song_button', // Để Appium nhận diện
+        child: IconButton(
+          icon: const Icon(Icons.play_arrow, color: Color(0xFFA6B9FF)),
+          onPressed: () {
+            // Gọi hàm phát nhạc từ AudioProvider
+            audioProvider.playSong({
+              'songUrl': songUrl,
+              'title': title,
+              'artist': artist,
+              'imagePath': imagePath,
+            });
+          },
+        ),
+      ),
+      onTap: () {
+        // Nhấn vào toàn bộ SongCard để mở NowPlayingScreen
+        audioProvider.playSong({
+          'songUrl': songUrl,
+          'title': title,
+          'artist': artist,
+          'imagePath': imagePath,
+        });
+        // Điều hướng đến NowPlayingScreen (nếu cần)
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const NowPlayingScreen()),
+        );
+      },
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
         userService.getCurrentUser(),
         songService.fetchSongs(),
         albumService.fetchAlbums(),
-        artistProvider.fetchArtists(), // Bây giờ an toàn vì chạy sau build
+        artistProvider.fetchArtists(),
       ]);
 
       final user = results[0] as User;
@@ -85,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'artist': artistName,
           'imagePath': song.coverImage ?? 'default_image_url',
         };
-        }).toList();
+      }).toList();
 
       audioProvider.setSongs(songsForProvider);
       searchProvider.setSongs(fetchedSongs);

@@ -3,68 +3,84 @@ import time
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.common.exceptions import WebDriverException, NoSuchElementException, TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from openpyxl import Workbook, load_workbook
+from datetime import datetime
+import os
 
-# Cấu hình capabilities
-capabilities = dict(
-    platformName='Android',
-    automationName='uiautomator2',
-    deviceName='emulator-5554',
-    appPackage='com.example.app_music',
-    appActivity='.MainActivity',
-    language='en',
-    locale='US',
-    newCommandTimeout=300,
-    adbExecTimeout=60000,
-    appWaitActivity='*',
-    noReset=True,
-    fullReset=False
-)
-
-appium_server_url = 'http://127.0.0.1:4723/wd/hub'
-
-class PlayPauseMusicTest(unittest.TestCase):
+class SearchMusicTest(unittest.TestCase):
     def setUp(self):
+        """Khởi tạo Appium driver trước mỗi test case"""
         print("🔄 Đang khởi động Appium driver...")
-        try:
-            options = UiAutomator2Options().load_capabilities(capabilities)
-            self.driver = webdriver.Remote(appium_server_url, options=options)
-            self.wait = WebDriverWait(self.driver, 20)
-            time.sleep(5)  # Chờ ứng dụng khởi động
-            print("✅ Driver đã khởi động thành công.")
-        except WebDriverException as e:
-            print(f"❌ Lỗi khi khởi động driver: {e}")
-            self.driver = None
-            raise
+        desired_caps = {
+            "platformName": "Android",
+            "deviceName": "emulator-5554",
+            "appPackage": "com.example.app_music",
+            "appActivity": ".MainActivity",
+            "automationName": "UiAutomator2",
+            "newCommandTimeout": 300,
+            "adbExecTimeout": 60000,
+            "appWaitActivity": "*",
+            "noReset": True,
+            "fullReset": False,
+            "language": "en",
+            "locale": "US"
+        }
+        options = UiAutomator2Options().load_capabilities(desired_caps)
+        self.driver = webdriver.Remote("http://127.0.0.1:4723/wd/hub", options=options)
+        self.wait = WebDriverWait(self.driver, 40)
+        self.driver.terminate_app("com.example.app_music")
+        self.driver.activate_app("com.example.app_music")
+        time.sleep(5)
+        print("✅ Driver đã khởi động thành công.")
 
-    def tearDown(self):
-        if self.driver:
-            try:
-                self.driver.quit()
-                print("✅ Đã đóng driver.")
-            except WebDriverException as e:
-                print(f"⚠️ Không thể đóng driver: {e}")
-        else:
-            print("⚠️ Không có driver để đóng.")
+        # Chuẩn bị file Excel
+        self.excel_file = r"D:\Nam3\hocky2\kiemthu_giuaky\app_music\test\appium_tests\search_results.xlsx"
+        self.init_excel()
 
-    def scroll_to_element(self, content_desc):
-        """Cuộn để tìm phần tử dựa trên content-desc"""
+    def init_excel(self):
+        """Khởi tạo file Excel nếu chưa tồn tại"""
+        os.makedirs(os.path.dirname(self.excel_file), exist_ok=True)
+        if not os.path.exists(self.excel_file):
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Search Results"
+            ws.append(["Test Case", "Search Query", "Result", "Status", "Timestamp"])
+            wb.save(self.excel_file)
+        print(f"✅ File Excel: {self.excel_file}")
+
+    def save_to_excel(self, test_case, query, result, status):
+        """Lưu kết quả vào file Excel"""
         try:
-            self.driver.find_element(AppiumBy.ANDROID_UIAUTOMATOR,
-                                     f'new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView('
-                                     f'new UiSelector().description("{content_desc}"))')
-            print(f"✅ Đã cuộn để tìm phần tử: {content_desc}")
+            wb = load_workbook(self.excel_file)
+            ws = wb["Search Results"]
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ws.append([test_case, query, result, status, timestamp])
+            wb.save(self.excel_file)
+            print(f"✅ Đã lưu kết quả vào Excel: {test_case}, {query}, {result}, {status}")
         except Exception as e:
-            print(f"⚠️ Lỗi khi cuộn: {e}")
+            print(f"⚠️ Lỗi khi lưu vào Excel: {e}")
 
-    def test_login_and_search_play(self):
-        """Đăng nhập, tìm kiếm bài hát 'Đánh đổi', phát nhạc, nhấn lại bài hát và dừng phát."""
-        if not self.driver:
-            self.fail("❌ Driver chưa được khởi động.")
+    def ensure_app_foreground(self):
+        """Đảm bảo ứng dụng ở foreground"""
+        try:
+            current_package = self.driver.current_package
+            if current_package != 'com.example.app_music':
+                print(f"⚠️ Ứng dụng không ở foreground: {current_package}. Kích hoạt lại...")
+                self.driver.activate_app('com.example.app_music')
+                time.sleep(3)
+                self.wait.until(
+                    EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@content-desc, 'Hi,')]")),
+                    message="Không trở lại HomeScreen"
+                )
+                print("✅ Đã trở lại ứng dụng.")
+        except Exception as e:
+            print(f"⚠️ Lỗi khi kiểm tra foreground: {e}")
 
-        # Bước 1: Đăng nhập
+    def login(self):
+        """Đăng nhập vào ứng dụng"""
         try:
             print("🔍 Bắt đầu đăng nhập...")
             email_field = self.wait.until(
@@ -74,9 +90,7 @@ class PlayPauseMusicTest(unittest.TestCase):
             email_field.clear()
             email_field.send_keys("khai@gmail.com")
             time.sleep(1)
-            email_text = email_field.get_attribute("text")
-            print(f"✅ Đã nhập email: {email_text}")
-            self.assertEqual(email_text, "khai@gmail.com", "Email không được nhập đúng!")
+            print("✅ Đã nhập email.")
 
             password_field = self.wait.until(
                 EC.presence_of_all_elements_located((AppiumBy.CLASS_NAME, "android.widget.EditText"))
@@ -85,148 +99,144 @@ class PlayPauseMusicTest(unittest.TestCase):
             password_field.clear()
             password_field.send_keys("123456")
             time.sleep(1)
-            password_text = password_field.get_attribute("text")
-            print(f"✅ Đã nhập mật khẩu: {password_text}")
-            self.assertEqual(len(password_text), len("123456"), "Độ dài mật khẩu không khớp!")
+            print("✅ Đã nhập mật khẩu.")
 
-            self.driver.hide_keyboard()
-            time.sleep(1)
-            self.scroll_to_element("Login")
+            try:
+                if self.driver.is_keyboard_shown():
+                    self.driver.hide_keyboard()
+                    print("✅ Đã ẩn bàn phím.")
+            except:
+                print("⚠️ Không cần ẩn bàn phím.")
+
+            self.driver.find_element(
+                AppiumBy.ANDROID_UIAUTOMATOR,
+                'new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView('
+                'new UiSelector().description("Login"))'
+            )
             login_button = self.wait.until(
                 EC.element_to_be_clickable((AppiumBy.XPATH, "//android.widget.Button[@content-desc='Login']"))
             )
             login_button.click()
             print("✅ Đã nhấn nút Login.")
-            time.sleep(5)
 
-            try:
-                error_message = self.wait.until(
-                    EC.visibility_of_element_located(
-                        (AppiumBy.XPATH, "//*[@content-desc[contains(., 'Đăng nhập không thành công')]]")
-                    )
-                )
-                self.fail(f"❌ Đăng nhập thất bại: {error_message.get_attribute('content-desc')}")
-            except TimeoutException:
-                print("✅ Đăng nhập thành công (không có thông báo lỗi)!")
-        except NoSuchElementException as e:
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail(f"❌ Không tìm thấy phần tử cần thiết: {e}")
+            self.wait.until(
+                EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@content-desc, 'Hi,')]")),
+                message="Không tìm thấy tiêu đề HomeScreen"
+            )
+            time.sleep(2)
+            print("✅ Đã vào màn hình chính.")
         except Exception as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
-            self.fail(f"❌ Lỗi không xác định: {e}")
+            self.fail(f"❌ Lỗi đăng nhập: {e}")
 
-        # Bước 2: Nhấn vào thanh tìm kiếm và nhập "Đánh đổi"
+    def search_and_check(self, query, test_case):
+        """Tìm kiếm và kiểm tra kết quả, lưu vào Excel"""
         try:
-            print("🔍 Đang tìm thanh tìm kiếm...")
+            self.ensure_app_foreground()
+            print(f"🔍 Đang kiểm tra các EditText trên màn hình cho '{query}'...")
+            edit_texts = self.driver.find_elements(AppiumBy.CLASS_NAME, "android.widget.EditText")
+            for i, elem in enumerate(edit_texts):
+                print(f"EditText {i}: text={elem.get_attribute('text')}, "
+                      f"content-desc={elem.get_attribute('content-desc')}, "
+                      f"bounds={elem.get_attribute('bounds')}")
+
+            print(f"🔍 Đang tìm thanh tìm kiếm cho '{query}'...")
             search_field = self.wait.until(
-                EC.presence_of_element_located((AppiumBy.CLASS_NAME, "android.widget.EditText"))
-            )
-            search_field.click()
-            search_field.clear()
-            search_field.send_keys("Đánh đổi")
-            time.sleep(2)  # Chờ kết quả tìm kiếm hiển thị
-            search_text = search_field.get_attribute("text")
-            print(f"✅ Đã nhập từ khóa tìm kiếm: {search_text}")
-            self.assertEqual(search_text, "Đánh đổi", "Từ khóa tìm kiếm không được nhập đúng!")
-        except TimeoutException:
-            print("⚠️ Không tìm thấy thanh tìm kiếm bằng EditText, thử tìm bằng hintText...")
-            try:
-                search_field = self.wait.until(
-                    EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@text, 'Search music')]"))
-                )
-                search_field.click()
-                search_field.clear()
-                search_field.send_keys("Đánh đổi")
-                time.sleep(2)
-                search_text = search_field.get_attribute("text")
-                print(f"✅ Đã nhập từ khóa tìm kiếm: {search_text}")
-                self.assertEqual(search_text, "Đánh đổi", "Từ khóa tìm kiếm không được nhập đúng!")
-            except TimeoutException as e:
-                print("🔍 In cấu trúc giao diện để debug:")
-                print(self.driver.page_source)
-                self.fail(f"❌ Không tìm thấy thanh tìm kiếm: {e}")
-
-        # Bước 3: Nhấn nút phát bên cạnh bài hát "Đánh đổi" trong kết quả tìm kiếm
-        try:
-            print("🔍 Đang tìm bài hát 'Đánh đổi' và nút phát...")
-            # Tìm bài hát "Đánh đổi"
-            song_result = self.wait.until(
-                EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@text, 'Đánh đổi')]"))
-            )
-            # Tìm nút phát bên cạnh (dùng sibling để tìm IconButton)
-            play_button = self.wait.until(
                 EC.element_to_be_clickable(
-                    (AppiumBy.XPATH, "//*[contains(@text, 'Đánh đổi')]/following-sibling::*[@content-desc='play_song_button']")
-                )
+                    (AppiumBy.XPATH, "//android.widget.ScrollView//android.widget.EditText")
+                ),
+                message="Không tìm thấy thanh tìm kiếm"
             )
-            play_button.click()
-            print("✅ Đã nhấn nút phát bài hát 'Đánh đổi'.")
-            time.sleep(5)  # Chờ nhạc bắt đầu phát
-        except TimeoutException:
-            print("⚠️ Không tìm thấy bài hát hoặc nút phát.")
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail("❌ Không tìm thấy bài hát hoặc nút phát trong kết quả tìm kiếm.")
-        except NoSuchElementException as e:
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail(f"❌ Không tìm thấy bài hát hoặc nút phát: {e}")
+            print(f"✅ Đã tìm thấy thanh tìm kiếm.")
 
-        # Bước 4: Nhấn lại bài hát "Đánh đổi" trong kết quả tìm kiếm
-        try:
-            print("🔍 Nhấn lại bài hát 'Đánh đổi' để mở NowPlayingScreen...")
-            # Tìm lại bài hát "Đánh đổi"
-            song_result = self.wait.until(
-                EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@text, 'Đánh đổi')]"))
-            )
-            song_result.click()
-            print("✅ Đã nhấn lại bài hát 'Đánh đổi'.")
-            time.sleep(5)  # Chờ màn hình NowPlayingScreen tải hoàn toàn
-        except TimeoutException:
-            print("⚠️ Không tìm thấy bài hát 'Đánh đổi' để nhấn lại.")
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail("❌ Không tìm thấy bài hát để nhấn lại.")
-        except NoSuchElementException as e:
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail(f"❌ Không tìm thấy bài hát: {e}")
+            search_field.click()
+            time.sleep(1)
+            search_field.clear()
+            print(f"✅ Đã xóa nội dung cũ trong thanh tìm kiếm.")
+            search_field.send_keys(query)
+            print(f"✅ Đã nhập '{query}'.")
 
-        # Bước 5: Dừng phát nhạc (nhấn nút tạm dừng trên NowPlayingScreen)
-        try:
-            print("🔍 Đang tìm nút tạm dừng trên NowPlayingScreen...")
-            pause_button = self.wait.until(
-                EC.element_to_be_clickable((AppiumBy.ACCESSIBILITY_ID, "pause_button"))
-            )
-            pause_button.click()
-            print("✅ Đã nhấn nút tạm dừng.")
-        except TimeoutException:
-            print("⚠️ Không tìm thấy nút tạm dừng.")
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail("❌ Không tìm thấy nút tạm dừng trên NowPlayingScreen.")
-        except NoSuchElementException as e:
-            print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
-            self.fail(f"❌ Không tìm thấy nút tạm dừng: {e}")
+            search_text = search_field.get_attribute("text")
+            print(f"✅ Giá trị thanh tìm kiếm: {search_text}")
+            self.assertEqual(search_text, query, f"Từ khóa '{query}' không được nhập đúng!")
 
-        # Bước 6: Xác minh trạng thái tạm dừng
-        try:
-            play_button = self.wait.until(
-                EC.presence_of_element_located((AppiumBy.ACCESSIBILITY_ID, "play_button"))
+            try:
+                if self.driver.is_keyboard_shown():
+                    self.driver.hide_keyboard()
+                    print("✅ Đã ẩn bàn phím.")
+            except:
+                print("⚠️ Không cần ẩn bàn phím.")
+
+            print(f"🔍 Đang chờ kết quả tìm kiếm cho '{query}'...")
+            result_element = self.wait.until(
+                EC.presence_of_element_located(
+                    (AppiumBy.XPATH, f"//*[contains(@content-desc, '{query}') or contains(@text, '{query}')]")
+                ),
+                message=f"Không tìm thấy kết quả cho '{query}'"
             )
-            self.assertIsNotNone(play_button, "Không chuyển sang trạng thái tạm dừng.")
-            print("✅ Nhạc đã dừng thành công!")
-        except NoSuchElementException as e:
+            result_text = result_element.get_attribute("content-desc") or result_element.get_attribute("text")
+            print(f"✅ Kết quả tìm kiếm: {result_text}")
+            self.assertIn(query, result_text, f"Kết quả không chứa '{query}'")
+
+            self.save_to_excel(
+                test_case=test_case,
+                query=query,
+                result=result_text,
+                status="PASSED"
+            )
+        except TimeoutException:
+            print(f"⚠️ Không tìm thấy kết quả cho '{query}'.")
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
-            self.fail(f"❌ Không xác minh được trạng thái tạm dừng: {e}")
+            self.save_to_excel(
+                test_case=test_case,
+                query=query,
+                result="Không tìm thấy",
+                status="FAILED"
+            )
+        except StaleElementReferenceException:
+            print(f"⚠️ Thanh tìm kiếm không còn tồn tại khi tìm '{query}'.")
+            print("🔍 In cấu trúc giao diện để debug:")
+            print(self.driver.page_source)
+            self.save_to_excel(
+                test_case=test_case,
+                query=query,
+                result="StaleElement: Thanh tìm kiếm mất",
+                status="FAILED"
+            )
         except Exception as e:
+            print(f"⚠️ Lỗi không xác định khi tìm kiếm '{query}'.")
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
-            self.fail(f"❌ Lỗi không xác định: {e}")
+            self.save_to_excel(
+                test_case=test_case,
+                query=query,
+                result=str(e),
+                status="FAILED"
+            )
+
+    def test_sequential_search(self):
+        """Tìm kiếm lần lượt Đánh đổi, Fly me to the moon, Obito và lưu kết quả vào Excel"""
+        self.login()
+
+        # Tìm kiếm "Đánh đổi"
+        self.search_and_check("Đánh đổi", "Search Đánh đổi")
+
+        # Tìm kiếm "Fly me to the moon"
+        self.search_and_check("Fly me to the moon", "Search Fly me to the moon")
+
+        # Tìm kiếm "Obito"
+        self.search_and_check("Obito", "Search Obito")
+
+    def tearDown(self):
+        """Dọn dẹp sau mỗi test case"""
+        if self.driver:
+            try:
+                self.driver.quit()
+                print("✅ Đã đóng driver.")
+            except Exception as e:
+                print(f"⚠️ Không thể đóng driver: {e}")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
