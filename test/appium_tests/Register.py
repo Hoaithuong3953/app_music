@@ -6,6 +6,9 @@ from appium.webdriver.common.appiumby import AppiumBy
 from selenium.common.exceptions import WebDriverException, NoSuchElementException, StaleElementReferenceException, TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from openpyxl import Workbook, load_workbook
+from datetime import datetime
+import os
 
 capabilities = dict(
     platformName='Android',
@@ -32,6 +35,37 @@ class TestRegister(unittest.TestCase):
             print(f"❌ Lỗi khi khởi động driver: {e}")
             self.driver = None
             raise
+
+        # Chuẩn bị thư mục và file Excel
+        self.excel_dir = "result"
+        self.excel_file = os.path.join(self.excel_dir, "result_register.xlsx")
+        self.init_excel()
+
+    def init_excel(self):
+        """Khởi tạo thư mục result và file Excel nếu chưa tồn tại"""
+        if not os.path.exists(self.excel_dir):
+            os.makedirs(self.excel_dir)
+            print(f"✅ Đã tạo thư mục: {self.excel_dir}")
+
+        if not os.path.exists(self.excel_file):
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Register Results"
+            ws.append(["Test Case", "First Name", "Last Name", "Email", "Mobile", "Password", "Address", "Result", "Status", "Timestamp"])
+            wb.save(self.excel_file)
+        print(f"✅ File Excel: {self.excel_file}")
+
+    def save_to_excel(self, test_case, first_name, last_name, email, mobile, password, address, result, status):
+        """Lưu kết quả vào file Excel"""
+        try:
+            wb = load_workbook(self.excel_file)
+            ws = wb["Register Results"]
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ws.append([test_case, first_name, last_name, email, mobile, password, address, result, status, timestamp])
+            wb.save(self.excel_file)
+            print(f"✅ Đã lưu kết quả vào Excel: {test_case}, {first_name}, {last_name}, {email}, {mobile}, {password}, {address}, {result}, {status}")
+        except Exception as e:
+            print(f"⚠️ Lỗi khi lưu vào Excel: {e}")
 
     def tearDown(self) -> None:
         if self.driver:
@@ -163,6 +197,15 @@ class TestRegister(unittest.TestCase):
         """Test đăng ký thành công với thông tin hợp lệ"""
         if not self.driver:
             self.fail("❌ Driver chưa được khởi động.")
+
+        # Lưu trữ thông tin để ghi vào Excel
+        first_name = "Khai"
+        last_name = "Black"
+        email = f"khaiblack{int(time.time())}@gmail.com"
+        mobile = "0987654321"
+        password = "123456"
+        address = "123 Le Loi, Hai Chau, Da Nang"
+
         try:
             print("Page Source của MainActivity:")
             print(self.driver.page_source)
@@ -173,17 +216,17 @@ class TestRegister(unittest.TestCase):
             print(self.driver.page_source)
 
             # Nhập thông tin
-            self.input_field_with_retry('//android.widget.EditText[@index="3"]', "Khai", "First Name")
+            self.input_field_with_retry('//android.widget.EditText[@index="3"]', first_name, "First Name")
             print("🔍 Page Source sau khi nhập First Name:")
             print(self.driver.page_source)
             if not self.check_register_screen():
                 self.fail("❌ Ứng dụng đã thoát khỏi màn hình đăng ký sau khi nhập First Name!")
 
-            self.input_field_with_retry('//android.widget.EditText[@index="4"]', "white", "Last Name")
-            self.input_field_with_retry('//android.widget.EditText[@index="5"]', f"khaidaden{int(time.time())}@gmail.com", "Email")
-            self.input_field_with_retry('//android.widget.EditText[@index="6"]', "0987654321", "Mobile")
-            self.input_field_with_retry('//android.widget.EditText[@index="7"]', "SecurePass1234", "Password", is_password=True)
-            self.input_field_with_retry('//android.widget.EditText[@index="8"]', "123 Le Loi, Hai Chau, Da Nang", "Address")
+            self.input_field_with_retry('//android.widget.EditText[@index="4"]', last_name, "Last Name")
+            self.input_field_with_retry('//android.widget.EditText[@index="5"]', email, "Email")
+            self.input_field_with_retry('//android.widget.EditText[@index="6"]', mobile, "Mobile")
+            self.input_field_with_retry('//android.widget.EditText[@index="7"]', password, "Password", is_password=True)
+            self.input_field_with_retry('//android.widget.EditText[@index="8"]', address, "Address")
 
             # In Page Source trước khi tìm nút Sign Up
             print("🔍 Page Source trước khi tìm nút Sign Up:")
@@ -209,7 +252,9 @@ class TestRegister(unittest.TestCase):
                 )
                 print("🔍 Page Source khi phát hiện lỗi:")
                 print(self.driver.page_source)
-                self.fail(f"❌ Đăng ký thất bại: {error_message.get_attribute('content-desc')}")
+                result = error_message.get_attribute('content-desc')
+                status = "FAILED"
+                self.fail(f"❌ Đăng ký thất bại: {result}")
             except TimeoutException:
                 print("✅ Không có thông báo lỗi, kiểm tra chuyển màn hình...")
 
@@ -224,15 +269,52 @@ class TestRegister(unittest.TestCase):
                 )
             )
             self.assertTrue(main_screen_element.is_displayed(), "Không chuyển được sang màn hình chính!")
+            result = "Đăng ký thành công và chuyển sang màn hình chính"
+            status = "PASSED"
             print("✅ Đăng ký thành công và chuyển sang màn hình chính!")
+
+            # Lưu kết quả vào Excel
+            self.save_to_excel(
+                test_case="Register Success",
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                mobile=mobile,
+                password=password,
+                address=address,
+                result=result,
+                status=status
+            )
 
         except NoSuchElementException as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
+            self.save_to_excel(
+                test_case="Register Success",
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                mobile=mobile,
+                password=password,
+                address=address,
+                result=f"Lỗi: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Không tìm thấy phần tử: {e}")
         except Exception as e:
             print("🔍 In cấu trúc giao diện để debug:")
             print(self.driver.page_source)
+            self.save_to_excel(
+                test_case="Register Success",
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                mobile=mobile,
+                password=password,
+                address=address,
+                result=f"Lỗi: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Lỗi không xác định: {e}")
 
 if __name__ == '__main__':
