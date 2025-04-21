@@ -57,20 +57,25 @@ class TestLoginFunction(unittest.TestCase):
         print(f"✅ File Excel: {self.excel_file}")
 
     def save_to_excel(self, test_case, email, password, result, status):
-        """Ghi đè kết quả vào file Excel, xóa dữ liệu cũ"""
+        """Lưu kết quả vào file Excel mà không ghi đè dữ liệu cũ"""
         try:
-            # Tạo workbook mới để ghi đè
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Login Results"
-            # Thêm tiêu đề
-            ws.append(["Test Case", "Email", "Password", "Result", "Status", "Timestamp"])
-            # Thêm dữ liệu mới
+            # Mở file Excel hiện có, nếu không tồn tại thì tạo mới
+            if os.path.exists(self.excel_file):
+                wb = load_workbook(self.excel_file)
+                ws = wb["Login Results"]
+            else:
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Login Results"
+                ws.append(["Test Case", "Email", "Password", "Result", "Status", "Timestamp"])
+
+            # Thêm dữ liệu mới vào cuối sheet
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ws.append([test_case, email, password, result, status, timestamp])
-            # Ghi đè file
+
+            # Lưu file
             wb.save(self.excel_file)
-            print(f"✅ Đã ghi đè kết quả vào Excel: {test_case}, {email}, {password}, {result}, {status}")
+            print(f"✅ Đã thêm kết quả vào Excel: {test_case}, {email}, {password}, {result}, {status}")
         except Exception as e:
             print(f"⚠️ Lỗi khi lưu vào Excel: {e}")
 
@@ -252,7 +257,7 @@ class TestLoginFunction(unittest.TestCase):
                     status = "PASSED" if expected_result == "Đăng nhập thành công" else "FAILED"
                     print(f"🔍 Kết quả: {actual_result}, Trạng thái: {status}")
 
-                # Lưu kết quả vào Excel (ghi đè file)
+                # Lưu kết quả vào Excel
                 self.save_to_excel(
                     test_case=test_case,
                     email=email,
