@@ -3,7 +3,7 @@ import time
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.common.exceptions import WebDriverException, NoSuchElementException
+from selenium.common.exceptions import WebDriverException, NoSuchElementException, TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from openpyxl import load_workbook, Workbook
@@ -17,7 +17,9 @@ capabilities = dict(
     appPackage='com.example.app_music',
     appActivity='.MainActivity',
     language='en',
-    locale='US'
+    locale='US',
+    noReset=True,  # Không reset ứng dụng giữa các test
+    fullReset=False  # Không reset hoàn toàn trạng thái ứng dụng
 )
 
 appium_server_url = 'http://127.0.0.1:4723/wd/hub'
@@ -55,14 +57,20 @@ class TestLoginFunction(unittest.TestCase):
         print(f"✅ File Excel: {self.excel_file}")
 
     def save_to_excel(self, test_case, email, password, result, status):
-        """Lưu kết quả vào file Excel"""
+        """Ghi đè kết quả vào file Excel, xóa dữ liệu cũ"""
         try:
-            wb = load_workbook(self.excel_file)
-            ws = wb["Login Results"]
+            # Tạo workbook mới để ghi đè
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Login Results"
+            # Thêm tiêu đề
+            ws.append(["Test Case", "Email", "Password", "Result", "Status", "Timestamp"])
+            # Thêm dữ liệu mới
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ws.append([test_case, email, password, result, status, timestamp])
+            # Ghi đè file
             wb.save(self.excel_file)
-            print(f"✅ Đã lưu kết quả vào Excel: {test_case}, {email}, {password}, {result}, {status}")
+            print(f"✅ Đã ghi đè kết quả vào Excel: {test_case}, {email}, {password}, {result}, {status}")
         except Exception as e:
             print(f"⚠️ Lỗi khi lưu vào Excel: {e}")
 
@@ -77,18 +85,63 @@ class TestLoginFunction(unittest.TestCase):
             print("⚠️ Không có driver để đóng.")
 
     def scroll_to_element(self):
-        """Cuộn để tìm nút Login dựa trên content-desc"""
+        """Cuộn để tìm nút Login dựa trên content-desc, trả về True nếu tìm thấy"""
         try:
             self.driver.find_element(AppiumBy.ANDROID_UIAUTOMATOR,
                                      'new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView('
                                      'new UiSelector().description("Login"))')
-            print("✅ Đã cuộn để tìm nút Login.")
+            print("✅ Đã cuộn và tìm thấy nút Login.")
+            return True
         except Exception as e:
-            print(f"⚠️ Lỗi khi cuộn: {e}")
+            print(f"⚠️ Không tìm thấy nút Login khi cuộn: {e}")
+            return False
+
+    def hide_keyboard_alternative(self):
+        """Ẩn bàn phím bằng cách nhấn vào khu vực ngoài trường nhập liệu"""
+        try:
+            # Nhấn vào một vị trí ngoài trường nhập liệu (góc trên bên trái màn hình)
+            self.driver.tap([(50, 50)])
+            time.sleep(1)
+            print("✅ Đã ẩn bàn phím bằng cách nhấn ngoài trường nhập liệu.")
+        except Exception as e:
+            print(f"⚠️ Lỗi khi ẩn bàn phím: {e}")
+
+    def ensure_app_in_foreground(self):
+        """Đảm bảo ứng dụng đang ở trạng thái mong đợi"""
+        try:
+            current_activity = self.driver.current_activity
+            if current_activity != '.MainActivity':
+                print(f"⚠️ Ứng dụng không ở trạng thái mong đợi. Current activity: {current_activity}")
+                # Khởi động lại ứng dụng
+                self.driver.activate_app(capabilities['appPackage'])
+                time.sleep(5)
+                # Kiểm tra lại
+                current_activity = self.driver.current_activity
+                if current_activity != '.MainActivity':
+                    self.fail(f"❌ Không thể đưa ứng dụng về trạng thái mong đợi. Current activity: {current_activity}")
+                print("✅ Đã đưa ứng dụng về MainActivity.")
+            else:
+                print("✅ Ứng dụng đang ở MainActivity.")
+        except Exception as e:
+            self.fail(f"❌ Lỗi khi kiểm tra trạng thái ứng dụng: {e}")
 
     def test_login_cases(self):
         if not self.driver:
             self.fail("❌ Driver chưa được khởi động.")
+
+        # Kiểm tra xem ứng dụng đã khởi động đúng chưa
+        self.ensure_app_in_foreground()
+
+        # Kiểm tra xem có màn hình đăng nhập không
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((AppiumBy.CLASS_NAME, "android.widget.EditText"))
+            )
+            print("✅ Đã tìm thấy trường nhập liệu, sẵn sàng để nhập thông tin đăng nhập.")
+        except Exception as e:
+            print("🔍 In cấu trúc giao diện để debug:")
+            print(self.driver.page_source)
+            self.fail(f"❌ Không tìm thấy màn hình đăng nhập: {e}")
 
         # Lấy đường dẫn tuyệt đối của thư mục chứa file Login.py
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -160,16 +213,23 @@ class TestLoginFunction(unittest.TestCase):
                 password_field.click()
                 password_field.clear()
                 if password:
-                    password_field.send_keys(password)
+                    password_field.send_keys(str(password))  # Chuyển password thành chuỗi
                 time.sleep(1)
                 password_text = password_field.get_attribute("text")
                 print(f"✅ Đã nhập mật khẩu: {password_text}")
-                self.assertEqual(len(password_text), len(password), f"Độ dài mật khẩu không khớp cho {test_case}!")
+                self.assertEqual(len(password_text), len(str(password)), f"Độ dài mật khẩu không khớp cho {test_case}!")
 
-                # Ẩn bàn phím và cuộn đến nút Login
-                self.driver.hide_keyboard()
-                time.sleep(1)
-                self.scroll_to_element()
+                # Ẩn bàn phím bằng cách nhấn ngoài trường nhập liệu
+                self.hide_keyboard_alternative()
+
+                # Kiểm tra lại trạng thái ứng dụng sau khi nhập liệu
+                self.ensure_app_in_foreground()
+
+                # Cuộn đến nút Login
+                if not self.scroll_to_element():
+                    raise NoSuchElementException("Không thể cuộn để tìm nút Login.")
+
+                # Tìm và nhấn nút Login
                 login_button = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((AppiumBy.XPATH, "//android.widget.Button[@content-desc='Login']"))
                 )
@@ -187,16 +247,16 @@ class TestLoginFunction(unittest.TestCase):
                     actual_result = error_message.get_attribute('content-desc')
                     status = "PASSED" if actual_result == expected_result else "FAILED"
                     print(f"🔍 Kết quả: {actual_result}, Trạng thái: {status}")
-                except:
+                except TimeoutException:
                     actual_result = "Đăng nhập thành công (không có thông báo lỗi)"
                     status = "PASSED" if expected_result == "Đăng nhập thành công" else "FAILED"
                     print(f"🔍 Kết quả: {actual_result}, Trạng thái: {status}")
 
-                # Lưu kết quả vào Excel
+                # Lưu kết quả vào Excel (ghi đè file)
                 self.save_to_excel(
                     test_case=test_case,
                     email=email,
-                    password=password,
+                    password=str(password),  # Chuyển password thành chuỗi khi lưu
                     result=actual_result,
                     status=status
                 )
@@ -212,7 +272,7 @@ class TestLoginFunction(unittest.TestCase):
                 self.save_to_excel(
                     test_case=test_case,
                     email=email,
-                    password=password,
+                    password=str(password),  # Chuyển password thành chuỗi khi lưu
                     result=f"Lỗi: {str(e)}",
                     status="FAILED"
                 )
@@ -223,7 +283,7 @@ class TestLoginFunction(unittest.TestCase):
                 self.save_to_excel(
                     test_case=test_case,
                     email=email,
-                    password=password,
+                    password=str(password),  # Chuyển password thành chuỗi khi lưu
                     result=f"Lỗi: {str(e)}",
                     status="FAILED"
                 )
