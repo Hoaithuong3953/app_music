@@ -8,98 +8,100 @@ class MusicPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final audioProvider = Provider.of<AudioProvider>(context);
-    final audioManager = audioProvider.audioManager;
+    return Consumer<AudioProvider>(
+      builder: (context, audioProvider, child) {
+        // Kiểm tra bài hát hiện tại từ AudioProvider
+        final currentIndex = audioProvider.currentIndex;
+        final currentSong = currentIndex >= 0 && currentIndex < audioProvider.songs.length
+            ? audioProvider.songs[currentIndex]
+            : null;
 
-    return ValueListenableBuilder<Map<String, String>?>(
-      valueListenable: audioManager.currentSongData,
-      builder: (context, songData, child) {
-        if (songData == null) return const SizedBox();
+        if (currentSong == null) {
+          return const SizedBox();
+        }
 
-        return ValueListenableBuilder<bool>(
-          valueListenable: audioManager.isPlayingNotifier,
-          builder: (context, isPlaying, child) {
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const NowPlayingScreen()),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFA6B9FF),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NowPlayingScreen()),
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFA6B9FF),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
                 ),
-                padding: const EdgeInsets.all(12),
-                child: SafeArea(
-                  top: false,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ],
+            ),
+            padding: const EdgeInsets.all(12),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              songData["imagePath"] ?? 'default_image_url',
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                songData["title"] ?? "Unknown",
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              Text(
-                                songData["artist"] ?? "Unknown Artist",
-                                style: const TextStyle(fontSize: 14, color: Colors.black54),
-                              ),
-                            ],
-                          ),
-                        ],
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          currentSong['imagePath']?.isNotEmpty == true
+                              ? currentSong['imagePath']!
+                              : 'default_image_url',
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.music_note),
+                        ),
                       ),
-                      Row(
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.skip_previous, color: Colors.black),
-                            onPressed: audioProvider.playPrevious,
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              isPlaying ? Icons.pause : Icons.play_arrow,
+                          Text(
+                            currentSong['title'] ?? 'Không xác định',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                               color: Colors.black,
                             ),
-                            onPressed: audioManager.togglePlayPause,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.skip_next, color: Colors.black),
-                            onPressed: audioProvider.playNext,
+                          Text(
+                            currentSong['artist'] ?? 'Ca sĩ không xác định',
+                            style: const TextStyle(fontSize: 14, color: Colors.black54),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.skip_previous, color: Colors.black),
+                        onPressed: audioProvider.playPrevious,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.black,
+                        ),
+                        onPressed: audioProvider.togglePlayPause,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.skip_next, color: Colors.black),
+                        onPressed: audioProvider.playNext,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );

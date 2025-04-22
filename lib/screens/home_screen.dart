@@ -11,6 +11,7 @@ import '../widgets/artist_card.dart';
 import '../providers/audio_provider.dart';
 import '../providers/search_provider.dart';
 import '../providers/artist_provider.dart';
+import 'now_playing_screen.dart';
 import 'search_screen.dart';
 import 'song_list_screen.dart';
 

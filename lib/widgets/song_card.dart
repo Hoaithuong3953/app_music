@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../managers/audio_player_manager.dart';
+import 'package:provider/provider.dart';
+import '../providers/audio_provider.dart';
+import '../screens/now_playing_screen.dart';
 
 class SongCard extends StatelessWidget {
   final String imagePath;
@@ -17,61 +19,86 @@ class SongCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AudioPlayerManager _audioManager = AudioPlayerManager();
+    final audioProvider = Provider.of<AudioProvider>(context);
 
-    return ValueListenableBuilder<Map<String, String>?>(
-      valueListenable: _audioManager.currentSongData,
-      builder: (context, currentSong, child) {
-        return ValueListenableBuilder<bool>(
-          valueListenable: _audioManager.isPlayingNotifier,
-          builder: (context, isPlaying, child) {
-            bool isCurrentPlaying = currentSong?["title"] == title && isPlaying;
+    // Kiểm tra xem bài hát này có đang phát không
+    final isCurrentSong = audioProvider.currentIndex >= 0 &&
+        audioProvider.songs[audioProvider.currentIndex]['songUrl'] == songUrl;
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      imagePath.isNotEmpty ? imagePath : 'default_image_url',
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.image, size: 60, color: Colors.grey),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          artist,
-                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      isCurrentPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                      color: const Color(0xFFA6B9FF),
-                      size: 32,
-                    ),
-                    onPressed: () {
-                      _audioManager.play(songUrl, title, artist, imagePath);
-                    },
-                  ),
-                ],
-              ),
-            );
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          imagePath,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note),
+        ),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        artist,
+        style: const TextStyle(fontSize: 14, color: Colors.black54),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Semantics(
+        label: 'play_song_button',
+        child: IconButton(
+          icon: Icon(
+            isCurrentSong && audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
+            color: const Color(0xFFA6B9FF),
+          ),
+          onPressed: () {
+            if (isCurrentSong && audioProvider.isPlaying) {
+              audioProvider.pause();
+            } else {
+              // Tìm index của bài hát trong danh sách
+              final index = audioProvider.songs
+                  .indexWhere((song) => song['songUrl'] == songUrl);
+              if (index >= 0) {
+                audioProvider.playSongByIndex(index);
+              } else {
+                // Nếu bài hát không có trong danh sách, thêm và phát
+                audioProvider.playSong({
+                  'songUrl': songUrl,
+                  'title': title,
+                  'artist': artist,
+                  'imagePath': imagePath,
+                });
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NowPlayingScreen()),
+              );
+            }
           },
+        ),
+      ),
+      onTap: () {
+        // Tương tự logic của nút phát
+        final index = audioProvider.songs
+            .indexWhere((song) => song['songUrl'] == songUrl);
+        if (index >= 0) {
+          audioProvider.playSongByIndex(index);
+        } else {
+          audioProvider.playSong({
+            'songUrl': songUrl,
+            'title': title,
+            'artist': artist,
+            'imagePath': imagePath,
+          });
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const NowPlayingScreen()),
         );
       },
     );

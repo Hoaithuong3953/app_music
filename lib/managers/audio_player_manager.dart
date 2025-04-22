@@ -36,38 +36,54 @@ class AudioPlayerManager {
         await _audioPlayer.play(UrlSource(url));
         _currentSongUrl = url;
         currentSongData.value = {
-          "songUrl": url,
-          "title": title,
-          "artist": artist,
-          "imagePath": imagePath,
+          'songUrl': url,
+          'title': title,
+          'artist': artist,
+          'imagePath': imagePath,
         };
       }
     } catch (e) {
-      print("Error playing audio: $e");
+      print('Lỗi khi phát âm thanh: $e');
     }
   }
 
-  Future<void> togglePlayPause() async {
+  Future<void> pause() async {
     try {
-      if (_currentSongUrl == null) return;
+      await _audioPlayer.pause();
+    } catch (e) {
+      print('Lỗi khi tạm dừng: $e');
+    }
+  }
 
-      if (isPlayingNotifier.value) {
-        await _audioPlayer.pause();
-      } else {
+  Future<void> resume() async {
+    try {
+      if (_currentSongUrl != null) {
         await _audioPlayer.resume();
       }
     } catch (e) {
-      print("Error toggling play/pause: $e");
+      print('Lỗi khi tiếp tục phát: $e');
     }
   }
 
   Future<void> stop() async {
-    await _audioPlayer.stop();
-    _currentSongUrl = null;
-    currentSongData.value = null;
+    try {
+      await _audioPlayer.stop();
+      _currentSongUrl = null;
+      currentSongData.value = null;
+    } catch (e) {
+      print('Lỗi khi dừng: $e');
+    }
   }
 
   void seekTo(double position) {
     _audioPlayer.seek(Duration(seconds: position.toInt()));
+  }
+
+  void dispose() {
+    _audioPlayer.dispose();
+    isPlayingNotifier.dispose();
+    currentSongData.dispose();
+    audioPosition.dispose();
+    totalTime.dispose();
   }
 }

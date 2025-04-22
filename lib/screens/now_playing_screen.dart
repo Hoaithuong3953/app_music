@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-// import '../managers/audio_player_manager.dart';
 import '../providers/audio_provider.dart';
 
 class NowPlayingScreen extends StatefulWidget {
@@ -23,6 +21,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final audioProvider = Provider.of<AudioProvider>(context);
     final audioManager = audioProvider.audioManager;
 
+    // Kiểm tra bài hát hiện tại từ AudioProvider
+    final currentIndex = audioProvider.currentIndex;
+    final currentSong = currentIndex >= 0 && currentIndex < audioProvider.songs.length
+        ? audioProvider.songs[currentIndex]
+        : null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -33,91 +37,106 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ValueListenableBuilder<Map<String, String>?>(
-        valueListenable: audioManager.currentSongData,
-        builder: (context, songData, child) {
-          if (songData == null) return const Center(child: Text("Không có bài hát nào đang phát"));
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    songData["imagePath"] ?? 'default_image_url',
-                    width: double.infinity,
-                    height: MediaQuery.of(context).size.width - 40,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(songData["title"] ?? "Unknown",
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                Text(songData["artist"] ?? "Unknown Artist",
-                    style: const TextStyle(fontSize: 18, color: Colors.black54)),
-                const SizedBox(height: 10),
-                ValueListenableBuilder<double>(
-                  valueListenable: audioManager.audioPosition,
-                  builder: (context, position, child) {
-                    return ValueListenableBuilder<double>(
-                      valueListenable: audioManager.totalTime,
-                      builder: (context, totalTime, child) {
-                        return Column(
+      body: currentSong == null
+          ? const Center(child: Text("Không có bài hát nào đang phát"))
+          : Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                currentSong['imagePath'] ?? 'default_image_url',
+                width: double.infinity,
+                height: MediaQuery.of(context).size.width - 40,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              currentSong['title'] ?? 'Không xác định',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              currentSong['artist'] ?? 'Ca sĩ không xác định',
+              style: const TextStyle(fontSize: 18, color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            ValueListenableBuilder<double>(
+              valueListenable: audioManager.audioPosition,
+              builder: (context, position, child) {
+                return ValueListenableBuilder<double>(
+                  valueListenable: audioManager.totalTime,
+                  builder: (context, totalTime, child) {
+                    return Column(
+                      children: [
+                        Slider(
+                          value: position,
+                          min: 0,
+                          max: totalTime > 0 ? totalTime : 1,
+                          activeColor: const Color(0xFFA6B9FF),
+                          onChanged: (value) => audioManager.seekTo(value),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Slider(
-                              value: position,
-                              min: 0,
-                              max: totalTime > 0 ? totalTime : 1,
-                              activeColor: const Color(0xFFA6B9FF),
-                              onChanged: audioManager.seekTo,
+                            Text(
+                              _formatTime(position),
+                              style: const TextStyle(color: Colors.black54),
                             ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(_formatTime(position), style: const TextStyle(color: Colors.black54)),
-                                Text(_formatTime(totalTime), style: const TextStyle(color: Colors.black54)),
-                              ],
+                            Text(
+                              _formatTime(totalTime),
+                              style: const TextStyle(color: Colors.black54),
                             ),
                           ],
-                        );
-                      },
-                    );
-                  },
-                ),
-                ValueListenableBuilder<bool>(
-                  valueListenable: audioManager.isPlayingNotifier,
-                  builder: (context, isPlaying, child) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.skip_previous, size: 40, color: Color(0xFFA6B9FF)),
-                          onPressed: audioProvider.playPrevious,
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
-                            size: 60,
-                            color: const Color(0xFFA6B9FF),
-                          ),
-                          onPressed: audioManager.togglePlayPause,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.skip_next, size: 40, color: Color(0xFFA6B9FF)),
-                          onPressed: audioProvider.playNext,
                         ),
                       ],
                     );
                   },
-                ),
-                const SizedBox(height: 20),
-              ],
+                );
+              },
             ),
-          );
-        },
+            Consumer<AudioProvider>(
+              builder: (context, audioProvider, child) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.skip_previous,
+                        size: 40,
+                        color: Color(0xFFA6B9FF),
+                      ),
+                      onPressed: audioProvider.playPrevious,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        audioProvider.isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_fill,
+                        size: 60,
+                        color: const Color(0xFFA6B9FF),
+                      ),
+                      onPressed: audioProvider.togglePlayPause,
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.skip_next,
+                        size: 40,
+                        color: Color(0xFFA6B9FF),
+                      ),
+                      onPressed: audioProvider.playNext,
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
