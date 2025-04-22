@@ -1,5 +1,6 @@
 import unittest
 import time
+import os
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 from appium.webdriver.common.appiumby import AppiumBy
@@ -8,7 +9,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
-import os
 
 capabilities = dict(
     platformName='Android',
@@ -37,7 +37,7 @@ class TestLogOut(unittest.TestCase):
             raise
 
         # Chuẩn bị thư mục và file Excel
-        self.excel_dir = "result"
+        self.excel_dir = r"D:\Nam3\hocky2\kiemthu_giuaky\app_music\test\appium_tests\result"
         self.excel_file = os.path.join(self.excel_dir, "test_logout.xlsx")
         self.init_excel()
 
@@ -96,7 +96,7 @@ class TestLogOut(unittest.TestCase):
         try:
             # Kiểm tra xem đang ở HomeScreen (MainActivity)
             print("🔍 Đang kiểm tra HomeScreen...")
-            WebDriverWait(self.driver, 15).until(
+            WebDriverWait(self.driver, 20).until(
                 EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@content-desc, 'Hi,')]")),
                 message="Không tìm thấy tiêu đề HomeScreen"
             )
@@ -104,7 +104,7 @@ class TestLogOut(unittest.TestCase):
 
             # Tìm và nhấn nút Profile trong BottomNavigationBar
             print("🔍 Đang tìm nút Profile trong BottomNavigationBar...")
-            profile_button = WebDriverWait(self.driver, 10).until(
+            profile_button = WebDriverWait(self.driver, 15).until(
                 EC.element_to_be_clickable((AppiumBy.XPATH, "//*[contains(@content-desc, 'Profile')]")),
                 message="Không tìm thấy nút Profile"
             )
@@ -113,18 +113,23 @@ class TestLogOut(unittest.TestCase):
 
             # Kiểm tra đã vào ProfileScreen
             print("🔍 Đang kiểm tra ProfileScreen...")
-            WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@text, 'Edit Profile')]")),
+            WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@content-desc, 'Edit Profile')]")),
                 message="Không tìm thấy tiêu đề ProfileScreen"
             )
             print("✅ Đã vào ProfileScreen.")
-            print("🔍 Giao diện ProfileScreen:")
-            print(self.driver.page_source)
+
+            # Lưu page_source để debug
+            page_source = self.driver.page_source
+            debug_file = os.path.join(self.excel_dir, "profile_screen_page_source.xml")
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(page_source)
+            print(f"🔍 Đã lưu cấu trúc giao diện vào: {debug_file}")
 
             # Tìm và nhấn nút Log Out
             print("🔍 Đang tìm nút Log Out...")
-            logout_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((AppiumBy.XPATH, "//*[contains(@text, 'Log Out')]")),
+            logout_button = WebDriverWait(self.driver, 15).until(
+                EC.element_to_be_clickable((AppiumBy.XPATH, "//*[contains(@content-desc, 'Log Out')]")),
                 message="Không tìm thấy nút Log Out"
             )
             logout_button.click()
@@ -133,7 +138,7 @@ class TestLogOut(unittest.TestCase):
 
             # Kiểm tra đã chuyển về LoginScreen
             print("🔍 Đang kiểm tra LoginScreen...")
-            login_screen_element = WebDriverWait(self.driver, 15).until(
+            login_screen_element = WebDriverWait(self.driver, 20).until(
                 EC.presence_of_element_located((AppiumBy.XPATH, "//*[contains(@content-desc, 'Login')]")),
                 message="Không chuyển được về LoginScreen"
             )
@@ -151,7 +156,11 @@ class TestLogOut(unittest.TestCase):
 
         except (NoSuchElementException, TimeoutException) as e:
             print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
+            page_source = self.driver.page_source
+            debug_file = os.path.join(self.excel_dir, "error_page_source.xml")
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(page_source)
+            print(f"🔍 Đã lưu cấu trúc giao diện lỗi vào: {debug_file}")
             self.save_to_excel(
                 test_case="Log Out",
                 result=f"Lỗi: {str(e)}",
@@ -161,13 +170,22 @@ class TestLogOut(unittest.TestCase):
         except NoSuchDriverException as e:
             print("🔍 Session không hợp lệ, thử khởi động lại ứng dụng...")
             self.restart_app()
+            self.save_to_excel(
+                test_case="Log Out",
+                result=f"Session không hợp lệ: {str(e)}",
+                status="FAILED"
+            )
             self.fail(f"❌ Session không hợp lệ: {e}")
         except Exception as e:
             print("🔍 In cấu trúc giao diện để debug:")
-            print(self.driver.page_source)
+            page_source = self.driver.page_source
+            debug_file = os.path.join(self.excel_dir, "error_page_source.xml")
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(page_source)
+            print(f"🔍 Đã lưu cấu trúc giao diện lỗi vào: {debug_file}")
             self.save_to_excel(
                 test_case="Log Out",
-                result=f"Lỗi: {str(e)}",
+                result=f"Lỗi không xác định: {str(e)}",
                 status="FAILED"
             )
             self.fail(f"❌ Lỗi không xác định: {e}")
