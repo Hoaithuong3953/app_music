@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
-import '../services/client/user_service.dart';
+import '../service/client/user_service.dart';
 import 'dart:convert';
 
 class UserProvider with ChangeNotifier {
@@ -9,6 +9,12 @@ class UserProvider with ChangeNotifier {
   User? _user;
 
   User? get user => _user;
+
+  // Getter để lấy accessToken từ SharedPreferences
+  Future<String?> get token async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('accessToken');
+  }
 
   // Đăng nhập người dùng
   Future<void> login(String email, String password) async {
@@ -86,24 +92,21 @@ class UserProvider with ChangeNotifier {
     required String oldPassword,
     required String newPassword,
   }) async {
-    // Kiểm tra mật khẩu cũ bằng cách thử đăng nhập
     if (_user == null || _user!.email == null) {
       throw Exception('User not logged in');
     }
 
     try {
-      await _userService.login(_user!.email!, oldPassword); // Thử đăng nhập để kiểm tra mật khẩu cũ
+      await _userService.login(_user!.email!, oldPassword);
     } catch (e) {
       throw Exception('Old password is incorrect');
     }
 
-    // Nếu mật khẩu cũ đúng, tiến hành cập nhật mật khẩu mới
     final updatedUser = await _userService.updateUser(
       password: newPassword,
     );
     _user = updatedUser;
 
-    // Cập nhật dữ liệu trong SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_data', jsonEncode(updatedUser.toJson()));
 
@@ -114,6 +117,12 @@ class UserProvider with ChangeNotifier {
   Future<void> logout() async {
     await _userService.logout();
     _user = null;
+
+    // Xóa dữ liệu trong SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('accessToken');
+    await prefs.remove('user_data');
+
     notifyListeners();
   }
 }

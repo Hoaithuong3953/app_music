@@ -8,6 +8,9 @@ import '../pages/client/main_page.dart';
 import '../pages/client/profile_page.dart';
 import '../pages/client/edit_profile_page.dart';
 import '../pages/client/change_password_page.dart';
+import '../pages/client/all_songs_page.dart';
+import '../pages/client/playlist_detail_page.dart';
+import '../pages/client/search_page.dart';
 
 final clientRoutes = {
   '/login': (context) => LoginPage(),
@@ -19,4 +22,7 @@ final clientRoutes = {
   '/profile': (context) => ProfilePage(),
   '/edit-profile': (context) => EditProfilePage(),
   '/change-password': (context) => ChangePasswordPage(),
+  '/all-songs': (context) => AllSongsPage(),
+  '/playlist-detail': (context) => PlaylistDetailPage(),
+  '/search': (context) => SearchPage(), // Thêm route mới
 };

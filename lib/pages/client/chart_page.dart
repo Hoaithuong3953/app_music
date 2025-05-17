@@ -1,79 +1,94 @@
 import 'package:flutter/material.dart';
 import '../../widgets/client/song_tile.dart';
 import '../../models/song.dart';
+import '../../service/client/song_service.dart';
 
-class ChartPage extends StatelessWidget {
-  final List<Map<String, dynamic>> songs = [
-    {
-      'song': Song(
-        id: '1',
-        title: 'Song 1',
-        artist: 'artist_id_1',
-        album: 'album_id_1',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'plays': 1250000,
-      'artistName': 'Artist 1',
-    },
-    {
-      'song': Song(
-        id: '2',
-        title: 'Song 2',
-        artist: 'artist_id_2',
-        album: 'album_id_2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'plays': 980000,
-      'artistName': 'Artist 2',
-    },
-    {
-      'song': Song(
-        id: '3',
-        title: 'Song 3',
-        artist: 'artist_id_3',
-        album: 'album_id_3',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'plays': 750000,
-      'artistName': 'Artist 3',
-    },
-    {
-      'song': Song(
-        id: '4',
-        title: 'Song 4',
-        artist: 'artist_id_4',
-        album: 'album_id_4',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'plays': 600000,
-      'artistName': 'Artist 4',
-    },
-    {
-      'song': Song(
-        id: '5',
-        title: 'Song 5',
-        artist: 'artist_id_5',
-        album: 'album_id_5',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'plays': 500000,
-      'artistName': 'Artist 5',
-    },
-  ];
+class ChartPage extends StatefulWidget {
+  @override
+  _ChartPageState createState() => _ChartPageState();
+}
+
+class _ChartPageState extends State<ChartPage> {
+  final SongService _songService = SongService();
+  List<Map<String, dynamic>> songs = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSongs();
+  }
+
+  Future<void> _fetchSongs() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final fetchedSongs = await _songService.getAllSongs();
+      if (fetchedSongs.isEmpty) {
+        setState(() {
+          errorMessage = 'No songs available';
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Sắp xếp bài hát theo createdAt giảm dần (mới nhất trước)
+      fetchedSongs.sort((a, b) {
+        final songA = a['song'] as Song;
+        final songB = b['song'] as Song;
+        return songB.createdAt.compareTo(songA.createdAt);
+      });
+
+      // Giả định số lần phát (plays) giảm dần từ bài mới nhất
+      final plays = [1250000, 980000, 750000, 600000, 500000]; // Giá trị giả định
+      setState(() {
+        songs = fetchedSongs.asMap().entries.map((entry) {
+          final index = entry.key;
+          final songData = entry.value;
+          final song = songData['song'] as Song;
+          final artistName = songData['artistName'] as String;
+          return {
+            'song': song,
+            'artistName': artistName,
+            'plays': index < plays.length ? plays[index] : 500000 - index * 10000, // Giảm dần nếu vượt quá plays
+          };
+        }).toList();
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
+    if (isLoading) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        body: Center(child: Text('Error: $errorMessage')),
+      );
+    }
+
     if (songs.length < 3) {
-      return const Center(
-        child: Text('Not enough songs to display the chart.'),
+      return const Scaffold(
+        body: Center(
+          child: Text('Not enough songs to display the chart.'),
+        ),
       );
     }
 
@@ -153,12 +168,17 @@ class ChartPage extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: songs.length - 3,
-                itemBuilder: (context, index) => SongTile(
-                  song: songs[index + 3]['song'],
-                  artistName: songs[index + 3]['artistName'],
-                  index: index + 4,
-                  isRanking: true,
-                ),
+                itemBuilder: (context, index) {
+                  final songData = songs[index + 3];
+                  final song = songData['song'] as Song;
+                  final artistName = songData['artistName'] as String;
+                  return SongTile(
+                    song: song,
+                    artistName: artistName,
+                    index: index + 4,
+                    isRanking: true,
+                  );
+                },
               ),
             ],
           ),
@@ -177,9 +197,9 @@ class ChartPage extends StatelessWidget {
         required double fontSizePlays,
         required double screenWidth,
       }) {
-    final Song song = songData['song'];
-    final String artistName = songData['artistName'];
-    final int plays = songData['plays'];
+    final Song song = songData['song'] as Song;
+    final String artistName = songData['artistName'] as String;
+    final int plays = songData['plays'] as int;
 
     return Column(
       children: [

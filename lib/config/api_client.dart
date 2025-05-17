@@ -4,53 +4,115 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://10.0.2.2:8080/api/v1'; // Dùng cho Android Emulator
-  // Nếu chạy trên thiết bị thật, thay bằng IP của máy: 'http://192.168.1.x:8080/api/v1'
-  // Nếu backend đã deploy, thay bằng URL thực tế: 'https://your-backend-api.com/api/v1'
   final http.Client _client = http.Client();
 
-  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body, {String? token}) async {
-    print('Calling POST $baseUrl/$endpoint with body: $body'); // Thêm log để debug
+  Future<Map<String, dynamic>> post(
+      String endpoint,
+      Map<String, dynamic> body, {
+        String? token,
+        Map<String, http.MultipartFile>? files,
+      }) async {
+    print('Calling POST $baseUrl/$endpoint with body: $body');
     try {
-      final response = await _client.post(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
-      print('Response from $endpoint: ${response.statusCode} - ${response.body}'); // Thêm log
-      if (response.statusCode == 200 || response.statusCode == 201) { // Thêm mã 201
-        return jsonDecode(response.body);
-      } else if (response.statusCode == 403) {
-        throw Exception('Permission denied: Admin access required');
+      if (files != null && files.isNotEmpty) {
+        // Sử dụng multipart request khi có file
+        var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/$endpoint'));
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+        body.forEach((key, value) {
+          request.fields[key] = value.toString();
+        });
+        files.forEach((key, file) {
+          request.files.add(file);
+        });
+
+        var streamedResponse = await request.send();
+        var response = await http.Response.fromStream(streamedResponse);
+
+        print('Response from $endpoint: ${response.statusCode} - ${response.body}');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return jsonDecode(response.body);
+        } else if (response.statusCode == 403) {
+          throw Exception('Permission denied: Admin access required');
+        } else {
+          throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+        }
       } else {
-        throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+        // Sử dụng JSON request khi không có file
+        final response = await _client.post(
+          Uri.parse('$baseUrl/$endpoint'),
+          headers: {
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(body),
+        );
+        print('Response from $endpoint: ${response.statusCode} - ${response.body}');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return jsonDecode(response.body);
+        } else if (response.statusCode == 403) {
+          throw Exception('Permission denied: Admin access required');
+        } else {
+          throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+        }
       }
     } catch (e) {
-      print('Error in POST $endpoint: $e'); // Thêm log
+      print('Error in POST $endpoint: $e');
       throw Exception('Failed to call API: $endpoint - $e');
     }
   }
 
-  Future<Map<String, dynamic>> put(String endpoint, Map<String, dynamic> body, {String? token}) async {
+  Future<Map<String, dynamic>> put(
+      String endpoint,
+      Map<String, dynamic> body, {
+        String? token,
+        Map<String, http.MultipartFile>? files,
+      }) async {
     print('Calling PUT $baseUrl/$endpoint with body: $body');
     try {
-      final response = await _client.put(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
-      print('Response from $endpoint: ${response.statusCode} - ${response.body}');
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else if (response.statusCode == 403) {
-        throw Exception('Permission denied: Admin access required');
+      if (files != null && files.isNotEmpty) {
+        // Sử dụng multipart request khi có file
+        var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/$endpoint'));
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+        body.forEach((key, value) {
+          request.fields[key] = value.toString();
+        });
+        files.forEach((key, file) {
+          request.files.add(file);
+        });
+
+        var streamedResponse = await request.send();
+        var response = await http.Response.fromStream(streamedResponse);
+
+        print('Response from $endpoint: ${response.statusCode} - ${response.body}');
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body);
+        } else if (response.statusCode == 403) {
+          throw Exception('Permission denied: Admin access required');
+        } else {
+          throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+        }
       } else {
-        throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+        // Sử dụng JSON request khi không có file
+        final response = await _client.put(
+          Uri.parse('$baseUrl/$endpoint'),
+          headers: {
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(body),
+        );
+        print('Response from $endpoint: ${response.statusCode} - ${response.body}');
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body);
+        } else if (response.statusCode == 403) {
+          throw Exception('Permission denied: Admin access required');
+        } else {
+          throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+        }
       }
     } catch (e) {
       print('Error in PUT $endpoint: $e');
@@ -58,17 +120,22 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> get(String endpoint, {String? token}) async {
-    print('Calling GET $baseUrl/$endpoint'); // Thêm log
+  Future<Map<String, dynamic>> get(
+      String endpoint, {
+        String? token,
+        Map<String, String>? queryParameters,
+      }) async {
+    print('Calling GET $baseUrl/$endpoint');
     try {
+      final uri = Uri.parse('$baseUrl/$endpoint').replace(queryParameters: queryParameters);
       final response = await _client.get(
-        Uri.parse('$baseUrl/$endpoint'),
+        uri,
         headers: {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
-      print('Response from $endpoint: ${response.statusCode} - ${response.body}'); // Thêm log
+      print('Response from $endpoint: ${response.statusCode} - ${response.body}');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else if (response.statusCode == 403) {
@@ -77,7 +144,7 @@ class ApiClient {
         final newToken = await _refreshAccessToken();
         if (newToken != null) {
           final retryResponse = await _client.get(
-            Uri.parse('$baseUrl/$endpoint'),
+            uri,
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $newToken',
@@ -92,7 +159,37 @@ class ApiClient {
         throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print('Error in GET $endpoint: $e'); // Thêm log
+      print('Error in GET $endpoint: $e');
+      throw Exception('Failed to call API: $endpoint - $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> delete(
+      String endpoint, {
+        Map<String, dynamic>? body,
+        String? token,
+      }) async {
+    print('Calling DELETE $baseUrl/$endpoint');
+    try {
+      final uri = Uri.parse('$baseUrl/$endpoint');
+      final response = await _client.delete(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: body != null ? jsonEncode(body) : null,
+      );
+      print('Response from $endpoint: ${response.statusCode} - ${response.body}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 403) {
+        throw Exception('Permission denied: Admin access required');
+      } else {
+        throw Exception('Failed to call API: $endpoint - ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Error in DELETE $endpoint: $e');
       throw Exception('Failed to call API: $endpoint - $e');
     }
   }
@@ -119,7 +216,7 @@ class ApiClient {
       }
       return null;
     } catch (e) {
-      print('Error refreshing token: $e'); // Thêm log
+      print('Error refreshing token: $e');
       return null;
     }
   }

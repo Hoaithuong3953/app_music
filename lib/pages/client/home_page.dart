@@ -7,57 +7,31 @@ import '../../widgets/client/album_card.dart';
 import '../../widgets/client/artist_card.dart';
 import '../../widgets/client/song_tile.dart';
 import '../../providers/user_provider.dart';
+import '../../service/client/song_service.dart';
+import '../../service/client/album_service.dart';
+import '../../service/client/artist_service.dart';
 
-class HomePage extends StatelessWidget {
-  final List<Map<String, dynamic>> songs = [
-    {
-      'song': Song(
-        id: '1',
-        title: 'Song 1',
-        artist: 'artist_id_1',
-        album: 'album_id_1',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'artistName': 'Artist 1',
-    },
-    {
-      'song': Song(
-        id: '2',
-        title: 'Song 2',
-        artist: 'artist_id_2',
-        album: 'album_id_2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'artistName': 'Artist 2',
-    },
-  ];
-  final List<Map<String, dynamic>> albums = [
-    {
-      'album': Album(
-        id: '1',
-        title: 'Album 1',
-        artist: 'artist_id_1',
-        slugify: 'album-1',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'artistName': 'Artist 1',
-    },
-    {
-      'album': Album(
-        id: '2',
-        title: 'Album 2',
-        artist: 'artist_id_2',
-        slugify: 'album-2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      'artistName': 'Artist 2',
-    },
-  ];
-  final List<Artist> artists = [
+class HomePage extends StatefulWidget {
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final SongService _songService = SongService();
+  final AlbumService _albumService = AlbumService();
+  final ArtistService _artistService = ArtistService();
+
+  List<Map<String, dynamic>> songs = [];
+  List<Map<String, dynamic>> albums = [];
+  List<Artist> artists = [];
+
+  bool isLoading = true;
+  String? songsError;
+  String? albumsError;
+  String? artistsError;
+
+  // Dữ liệu tĩnh dự phòng cho artists nếu không có endpoint
+  final List<Artist> staticArtists = [
     Artist(
       id: '1',
       title: 'Artist 1',
@@ -75,11 +49,92 @@ class HomePage extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    setState(() {
+      isLoading = true;
+      songsError = null;
+      albumsError = null;
+      artistsError = null;
+    });
+
+    try {
+      // Lấy danh sách bài hát
+      try {
+        final fetchedSongs = await _songService.getAllSongs(limit: 5);
+        setState(() {
+          songs = fetchedSongs.map((songData) {
+            final song = songData['song'] as Song;
+            final artistName = songData['artistName'] as String;
+            return {
+              'song': song,
+              'artistName': artistName,
+            };
+          }).toList();
+        });
+      } catch (e) {
+        print('Error fetching songs: $e');
+        setState(() {
+          songsError = e.toString();
+        });
+      }
+
+      // Lấy danh sách album
+      try {
+        final fetchedAlbums = await _albumService.getAllAlbums(limit: 5);
+        setState(() {
+          albums = fetchedAlbums;
+        });
+      } catch (e) {
+        print('Error fetching albums: $e');
+        setState(() {
+          albumsError = e.toString();
+        });
+      }
+
+      // Lấy danh sách nghệ sĩ
+      try {
+        final fetchedArtists = await _artistService.getAllArtists(limit: 5);
+        setState(() {
+          artists = fetchedArtists;
+        });
+      } catch (e) {
+        print('Error fetching artists: $e');
+        setState(() {
+          artistsError = e.toString();
+          artists = staticArtists;
+        });
+      }
+
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        songsError ??= e.toString();
+        albumsError ??= e.toString();
+        artistsError ??= e.toString();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final userProvider = Provider.of<UserProvider>(context);
-    final userName = userProvider.user?.firstName ?? 'User'; // Lấy firstName từ UserProvider
+    final userName = userProvider.user?.firstName ?? 'User';
+
+    if (isLoading) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: PreferredSize(
@@ -89,7 +144,7 @@ class HomePage extends StatelessWidget {
           padding: EdgeInsets.only(top: screenHeight * 0.03),
           child: Center(
             child: Padding(
-              padding: EdgeInsets.only(left: screenWidth * 0.04), // Căn trái thẳng hàng với nội dung bên dưới
+              padding: EdgeInsets.only(left: screenWidth * 0.04),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -138,24 +193,54 @@ class HomePage extends StatelessWidget {
                       color: Theme.of(context).highlightColor,
                     ),
                   ),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/search');
+                  },
                   onChanged: (value) {},
                 ),
                 SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Recently Played',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontSize: screenHeight * 0.025,
-                    color: Theme.of(context).highlightColor,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Recently Played',
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontSize: screenHeight * 0.025,
+                        color: Theme.of(context).highlightColor,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/all-songs');
+                      },
+                      child: Text(
+                        'View All',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: screenHeight * 0.018,
+                          color: Theme.of(context).highlightColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: screenHeight * 0.01),
-                ...songs.asMap().entries.map(
-                      (entry) => SongTile(
-                    song: entry.value['song'],
-                    artistName: entry.value['artistName'],
-                    index: entry.key + 1,
-                  ),
-                ).toList(),
+                songsError != null
+                    ? Center(child: Text('Error loading songs: $songsError'))
+                    : songs.isEmpty
+                    ? Center(child: Text('No songs available'))
+                    : Column(
+                  children: songs.asMap().entries.map(
+                        (entry) {
+                      final song = entry.value['song'] as Song;
+                      final artistName = entry.value['artistName'] as String;
+                      return SongTile(
+                        song: song,
+                        artistName: artistName,
+                        index: entry.key + 1,
+                      );
+                    },
+                  ).toList(),
+                ),
                 SizedBox(height: screenHeight * 0.015),
                 Text(
                   'Top Albums',
@@ -165,9 +250,13 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.01),
-                SizedBox(
+                albumsError != null
+                    ? Center(child: Text('Error loading albums: $albumsError'))
+                    : SizedBox(
                   height: screenHeight * 0.25,
-                  child: ListView(
+                  child: albums.isEmpty
+                      ? Center(child: Text('No albums available'))
+                      : ListView(
                     scrollDirection: Axis.horizontal,
                     children: albums.map(
                           (albumData) => AlbumCard(
@@ -186,7 +275,9 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.01),
-                SizedBox(
+                artistsError != null
+                    ? Center(child: Text('Error loading artists: $artistsError'))
+                    : SizedBox(
                   height: screenHeight * 0.18,
                   child: ListView(
                     scrollDirection: Axis.horizontal,

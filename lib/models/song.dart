@@ -39,7 +39,12 @@ class Song {
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString(),
       lyrics: json['lyrics']?.toString(),
-      artist: json['artist']?.toString(),
+      // Parse artist từ object thành String (title của nghệ sĩ)
+      artist: json['artist'] != null
+          ? (json['artist'] is Map<String, dynamic> && json['artist']['title'] != null
+          ? json['artist']['title'].toString()
+          : json['artist'].toString())
+          : null,
       album: json['album']?.toString(),
       genre: (json['genre'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       duration: json['duration']?.toString(),

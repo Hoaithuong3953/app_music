@@ -5,7 +5,7 @@ class SongTile extends StatelessWidget {
   final Song song;
   final int index;
   final bool isRanking;
-  final String artistName; // Tên nghệ sĩ (truyền từ ngoài)
+  final String artistName;
 
   const SongTile({
     required this.song,
