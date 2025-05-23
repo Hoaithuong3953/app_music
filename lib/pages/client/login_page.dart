@@ -14,6 +14,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   String? _emailError;
   String? _passwordError;
+  bool _isLoading = false; // Thêm biến để quản lý trạng thái loading
 
   @override
   void dispose() {
@@ -35,11 +36,73 @@ class _LoginPageState extends State<LoginPage> {
     return isValid;
   }
 
+  Future<void> _login() async {
+    if (!_validateInputs()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.login(
+        _emailController.text,
+        _passwordController.text,
+      );
+
+      // Kiểm tra role và điều hướng phù hợp
+      final user = userProvider.user;
+      if (user != null) {
+        showDialog(
+          context: context,
+          builder: (context) => CustomAlertDialog(
+            isSuccess: true,
+            title: 'Success',
+            message: 'Login successful.',
+            autoDismiss: true,
+            autoDismissDuration: Duration(seconds: 2),
+            onConfirm: () {
+              if (user.role == 'admin') {
+                Navigator.pushReplacementNamed(context, '/admin/dashboard');
+              } else {
+                Navigator.pushReplacementNamed(context, '/main');
+              }
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      String error = e.toString();
+      if (error.contains("This email does not exist")) {
+        error = "Email not found.";
+      } else if (error.contains("Invalid Password")) {
+        error = "Incorrect password.";
+      } else if (error.contains("Missing Inputs")) {
+        error = "Please enter both email and password.";
+      } else {
+        error = "Login failed. Please try again.";
+      }
+      showDialog(
+        context: context,
+        builder: (context) => CustomAlertDialog(
+          isSuccess: false,
+          title: 'Error',
+          message: error,
+          autoDismiss: true,
+          autoDismissDuration: Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final userProvider = Provider.of<UserProvider>(context);
 
     return Scaffold(
       body: Container(
@@ -162,48 +225,7 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                     SizedBox(height: screenHeight * 0.03),
                     ElevatedButton(
-                      onPressed: () async {
-                        if (!_validateInputs()) return;
-
-                        try {
-                          await userProvider.login(
-                            _emailController.text,
-                            _passwordController.text,
-                          );
-                          showDialog(
-                            context: context,
-                            builder: (context) => CustomAlertDialog(
-                              isSuccess: true,
-                              title: 'Success',
-                              message: 'Login successful.',
-                              autoDismiss: true,
-                              autoDismissDuration: Duration(seconds: 2),
-                              onConfirm: () => Navigator.pushReplacementNamed(context, '/main'),
-                            ),
-                          );
-                        } catch (e) {
-                          String error = e.toString();
-                          if (error.contains("This email does not exist")) {
-                            error = "Email not found.";
-                          } else if (error.contains("Invalid Password")) {
-                            error = "Incorrect password.";
-                          } else if (error.contains("Missing Inputs")) {
-                            error = "Please enter both email and password.";
-                          } else {
-                            error = "Login failed. Please try again.";
-                          }
-                          showDialog(
-                            context: context,
-                            builder: (context) => CustomAlertDialog(
-                              isSuccess: false,
-                              title: 'Error',
-                              message: error,
-                              autoDismiss: true,
-                              autoDismissDuration: Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.symmetric(
                           vertical: screenHeight * 0.02,
@@ -214,13 +236,15 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         minimumSize: Size(screenWidth - 32, 56),
                       ),
-                      child: Text(
-                        'Login',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontSize: screenHeight * 0.02,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator()
+                          : Text(
+                              'Login',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    fontSize: screenHeight * 0.02,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
                     ),
                     SizedBox(height: screenHeight * 0.02),
                     TextButton(
@@ -233,15 +257,15 @@ class _LoginPageState extends State<LoginPage> {
                             TextSpan(
                               text: "Don't have an account? ",
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontSize: screenHeight * 0.02,
-                              ),
+                                    fontSize: screenHeight * 0.02,
+                                  ),
                             ),
                             TextSpan(
                               text: "Sign up",
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontSize: screenHeight * 0.02,
-                                color: Theme.of(context).highlightColor,
-                              ),
+                                    fontSize: screenHeight * 0.02,
+                                    color: Theme.of(context).highlightColor,
+                                  ),
                             ),
                           ],
                         ),

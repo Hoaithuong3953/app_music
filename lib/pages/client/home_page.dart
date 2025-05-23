@@ -30,7 +30,6 @@ class _HomePageState extends State<HomePage> {
   String? albumsError;
   String? artistsError;
 
-  // Dữ liệu tĩnh dự phòng cho artists nếu không có endpoint
   final List<Artist> staticArtists = [
     Artist(
       id: '1',
@@ -136,6 +135,9 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    // Tạo danh sách bài hát từ songs để truyền vào SongTile
+    final List<Song> songList = songs.map((songData) => songData['song'] as Song).toList();
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(screenHeight * 0.12),
@@ -237,6 +239,8 @@ class _HomePageState extends State<HomePage> {
                         song: song,
                         artistName: artistName,
                         index: entry.key + 1,
+                        playlist: songList,
+                        playlistId: 'homepage', // Đặt playlistId là "homepage"
                       );
                     },
                   ).toList(),

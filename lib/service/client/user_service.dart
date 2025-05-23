@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/api_client.dart';
 import '../../models/user.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class UserService {
   final ApiClient _apiClient = ApiClient();
@@ -93,7 +96,6 @@ class UserService {
     String? lastName,
     String? email,
     String? mobile,
-    String? address,
     String? password,
   }) async {
     try {
@@ -109,7 +111,6 @@ class UserService {
       if (lastName != null) body['lastName'] = lastName;
       if (email != null) body['email'] = email;
       if (mobile != null) body['mobile'] = mobile;
-      if (address != null) body['address'] = address;
       if (password != null) body['password'] = password;
 
       final response = await _apiClient.put('user/current', body, token: accessToken);
@@ -123,6 +124,41 @@ class UserService {
       }
     } catch (e) {
       throw Exception('Update user failed: $e');
+    }
+  }
+
+  // Cập nhật ảnh đại diện người dùng
+  Future<User> updateAvatar(File avatar) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
+
+      if (accessToken == null) {
+        throw Exception('No access token found');
+      }
+
+      // Tạo multipart request để tải file lên
+      var request = http.MultipartRequest('PUT', Uri.parse('${_apiClient.baseUrl}/user/current'));
+      request.headers['Authorization'] = 'Bearer $accessToken';
+      request.files.add(await http.MultipartFile.fromPath('avatar', avatar.path));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['success'] == true) {
+          final userData = jsonResponse['updateUser'] as Map<String, dynamic>;
+          userData['token'] = accessToken;
+          return User.fromJson(userData);
+        } else {
+          throw Exception(jsonResponse['message'] ?? 'Update avatar failed');
+        }
+      } else {
+        throw Exception('Update avatar failed: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Update avatar failed: $e');
     }
   }
 

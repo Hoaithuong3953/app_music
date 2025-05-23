@@ -7,6 +7,9 @@ import 'routes/admin_routes.dart';
 import 'pages/client/main_page.dart';
 import 'pages/client/login_page.dart';
 import 'providers/user_provider.dart';
+import 'providers/song_provider.dart';
+import 'providers/playback_provider.dart';
+import 'providers/audio_handler_provider.dart';
 
 void main() {
   runApp(MusicPlayerApp());
@@ -18,6 +21,18 @@ class MusicPlayerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => SongProvider()),
+        ChangeNotifierProvider(create: (_) => PlaybackProvider()),
+        ChangeNotifierProxyProvider2<PlaybackProvider, SongProvider, AudioHandlerProvider>(
+          create: (context) => AudioHandlerProvider(
+            Provider.of<PlaybackProvider>(context, listen: false),
+            Provider.of<SongProvider>(context, listen: false),
+          ),
+          update: (context, playbackProvider, songProvider, audioHandlerProvider) {
+            audioHandlerProvider!.update(playbackProvider);
+            return audioHandlerProvider;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Music Player',
@@ -29,6 +44,7 @@ class MusicPlayerApp extends StatelessWidget {
           ...adminRoutes,
           '/main': (context) => MainPage(),
           '/login': (context) => LoginPage(),
+          '/admin/dashboard': (context) => DashboardPage(),
         },
       ),
     );
@@ -72,10 +88,12 @@ class _AppInitializerState extends State<AppInitializer> {
           return LoginPage();
         }
 
-        // Điều hướng dựa trên role
+        print('User role after initialization: ${user.role}');
         if (user.role == 'admin') {
+          print('Navigating to DashboardPage for admin');
           return DashboardPage();
         } else {
+          print('Navigating to MainPage for user');
           return MainPage();
         }
       },

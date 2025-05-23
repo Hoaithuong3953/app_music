@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class User {
   final String id;
   final String firstName;
@@ -8,6 +10,7 @@ class User {
   final String? address;
   final bool isBlocked;
   final String? token;
+  final String? avatarImgURL; // Thêm trường mới
 
   User({
     required this.id,
@@ -19,6 +22,7 @@ class User {
     this.address,
     this.isBlocked = false,
     this.token,
+    this.avatarImgURL,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -33,6 +37,7 @@ class User {
       address: json['address']?.toString(),
       isBlocked: json['isBlocked'] == true,
       token: json['token']?.toString(),
+      avatarImgURL: json['avatarImgURL']?.toString(),
     );
   }
 
@@ -47,6 +52,7 @@ class User {
       'address': address,
       'isBlocked': isBlocked,
       'token': token,
+      'avatarImgURL': avatarImgURL,
     };
   }
 }

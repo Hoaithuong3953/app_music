@@ -39,6 +39,9 @@ dependencies:
   provider: ^6.1.5
   marquee: ^2.3.0
   image_picker: ^1.1.2
+  audioplayers: ^6.4.0
+  flutter_secure_storage: ^9.2.4
+  logger: ^2.5.0
 
 dev_dependencies:
   flutter_test:

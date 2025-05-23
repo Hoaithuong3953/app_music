@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/custom_alert_dialog.dart';
@@ -14,11 +16,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _lastNameController;
   late TextEditingController _emailController;
   late TextEditingController _mobileController;
-  late TextEditingController _addressController;
   String? _firstNameError;
   String? _lastNameError;
   String? _emailError;
   String? _mobileError;
+  File? _selectedImage;
 
   @override
   void initState() {
@@ -29,7 +31,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _lastNameController = TextEditingController(text: user?.lastName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _mobileController = TextEditingController(text: user?.mobile ?? '');
-    _addressController = TextEditingController(text: user?.address ?? '');
   }
 
   @override
@@ -38,7 +39,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _lastNameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -60,7 +60,49 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return isValid;
   }
 
-  InputDecoration _buildInputDecoration(BuildContext context, String labelText, IconData icon, {bool isRequired = false}) {
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+
+      try {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.updateAvatar(_selectedImage!);
+        showDialog(
+          context: context,
+          builder: (context) => CustomAlertDialog(
+            isSuccess: true,
+            title: 'Success',
+            message: 'Avatar updated successfully.',
+            autoDismiss: true,
+            autoDismissDuration: Duration(seconds: 2),
+          ),
+        );
+      } catch (e) {
+        showDialog(
+          context: context,
+          builder: (context) => CustomAlertDialog(
+            isSuccess: false,
+            title: 'Error',
+            message: 'Failed to update avatar: $e',
+            autoDismiss: true,
+            autoDismissDuration: Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  InputDecoration _buildInputDecoration(
+      BuildContext context,
+      String labelText,
+      IconData icon, {
+        bool isRequired = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
     return InputDecoration(
       label: Row(
@@ -109,6 +151,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.user;
 
     return Scaffold(
       appBar: AppBar(
@@ -138,32 +182,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(height: screenHeight * 0.03),
-                // Demo phần avatar
+                // Hiển thị và chọn ảnh đại diện
                 Stack(
                   alignment: Alignment.bottomRight,
                   children: [
                     CircleAvatar(
                       radius: screenHeight * 0.08,
                       backgroundColor: Theme.of(context).primaryColor,
-                      child: Text(
-                        (_firstNameController.text.isNotEmpty ? _firstNameController.text[0].toUpperCase() : 'U'),
+                      backgroundImage: _selectedImage != null
+                          ? FileImage(_selectedImage!)
+                          : (user?.avatarImgURL != null
+                          ? NetworkImage(user!.avatarImgURL!) as ImageProvider
+                          : null),
+                      child: user?.avatarImgURL == null && _selectedImage == null
+                          ? Text(
+                        (_firstNameController.text.isNotEmpty
+                            ? _firstNameController.text[0].toUpperCase()
+                            : 'U'),
                         style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                           fontSize: screenHeight * 0.06,
                           color: Colors.white,
                         ),
-                      ),
+                      )
+                          : null,
                     ),
                     GestureDetector(
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => CustomAlertDialog(
-                            isSuccess: false,
-                            title: 'Not Supported',
-                            message: 'Avatar change is not supported yet.',
-                          ),
-                        );
-                      },
+                      onTap: _pickImage,
                       child: CircleAvatar(
                         radius: screenHeight * 0.02,
                         backgroundColor: Theme.of(context).highlightColor,
@@ -272,20 +316,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                   ),
                 ],
-                SizedBox(height: screenHeight * 0.02),
-                TextField(
-                  controller: _addressController,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontSize: screenHeight * 0.02,
-                    color: Colors.black,
-                  ),
-                  decoration: _buildInputDecoration(
-                    context,
-                    'Address',
-                    Icons.location_on,
-                    isRequired: false,
-                  ),
-                ),
                 SizedBox(height: screenHeight * 0.03),
                 ElevatedButton(
                   onPressed: () async {
@@ -298,7 +328,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         lastName: _lastNameController.text.trim(),
                         email: _emailController.text.trim(),
                         mobile: _mobileController.text.trim(),
-                        address: _addressController.text.trim(),
                       );
                       showDialog(
                         context: context,

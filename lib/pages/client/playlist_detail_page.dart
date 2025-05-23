@@ -254,6 +254,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                         artistName: song.artist ?? 'Unknown Artist',
                         index: index + 1,
                         isRanking: false,
+                        playlist: playlist!.songs,
+                        playlistId: playlist!.id, // Truyền playlistId
                       );
                     },
                   ),
