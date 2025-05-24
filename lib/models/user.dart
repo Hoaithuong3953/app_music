@@ -10,7 +10,8 @@ class User {
   final String? address;
   final bool isBlocked;
   final String? token;
-  final String? avatarImgURL; // Thêm trường mới
+  final String? avatarImgURL;
+  final DateTime? createdAt; // Thêm trường createdAt
 
   User({
     required this.id,
@@ -23,6 +24,7 @@ class User {
     this.isBlocked = false,
     this.token,
     this.avatarImgURL,
+    this.createdAt,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class User {
       isBlocked: json['isBlocked'] == true,
       token: json['token']?.toString(),
       avatarImgURL: json['avatarImgURL']?.toString(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null, // Ánh xạ createdAt
     );
   }
 
@@ -53,6 +56,7 @@ class User {
       'isBlocked': isBlocked,
       'token': token,
       'avatarImgURL': avatarImgURL,
+      'createdAt': createdAt?.toIso8601String(),
     };
   }
 }

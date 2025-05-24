@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:music_player_app/pages/admin/admin_artist.dart';
+import 'package:music_player_app/pages/admin/admin_show_artist.dart';
 import '../pages/admin/dashboard_page.dart';
 import '../pages/admin/admin_user.dart';
 import '../pages/admin/admin_song.dart';
@@ -18,6 +20,12 @@ final adminRoutes = {
   '/admin/playlists': (context) => const AdminPlaylistPage(),
   '/admin/genres': (context) => const AdminGenrePage(),
   '/admin/albums': (context) => const AdminAlbumPage(),
+  '/admin/artist': (context) => const AdminArtistPage(),
+  '/admin/artist/:id': (context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map?;
+    final id = args?['id'] as String? ?? '';
+    return AdminShowArtistPage(artistId: id);
+  },
   '/admin/user/:uid': (context) {
     final userId = ModalRoute.of(context)!.settings.arguments as String;
     return AdminShowUserPage(userId: userId);
