@@ -160,101 +160,234 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Chỉnh sửa người dùng'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: firstNameController,
-                  decoration: const InputDecoration(labelText: 'Họ'),
-                ),
-                TextField(
-                  controller: lastNameController,
-                  decoration: const InputDecoration(labelText: 'Tên'),
-                ),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                TextField(
-                  controller: mobileController,
-                  decoration: const InputDecoration(labelText: 'Số điện thoại'),
-                ),
-                TextField(
-                  controller: passwordController,
-                  decoration: const InputDecoration(labelText: 'Mật khẩu mới (nếu thay đổi)'),
-                  obscureText: true,
-                ),
-                TextField(
-                  controller: addressController,
-                  decoration: const InputDecoration(labelText: 'Địa chỉ'),
-                ),
-                DropdownButton<String>(
-                  value: role,
-                  isExpanded: true,
-                  items: ['user', 'admin'].map((value) {
-                    return DropdownMenuItem(
-                      value: value,
-                      child: Text(value == 'user' ? 'Người dùng' : 'Quản trị viên'),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      role = value!;
-                    });
-                  },
-                ),
-                CheckboxListTile(
-                  title: const Text('Chặn người dùng'),
-                  value: isBlocked,
-                  onChanged: (value) {
-                    setState(() {
-                      isBlocked = value!;
-                    });
-                  },
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-                    if (result != null) {
-                      setState(() {
-                        avatarFile = File(result.files.single.path!);
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Ảnh đại diện đã được chọn')),
-                      );
-                    }
-                  },
-                  child: const Text('Chọn Ảnh Đại Diện'),
-                ),
-              ],
+        builder: (context, setState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: Colors.white,
+          elevation: 8,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Chỉnh sửa người dùng',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D3436),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildTextField(
+                    controller: firstNameController,
+                    label: 'Họ',
+                    icon: Icons.person_outline,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: lastNameController,
+                    label: 'Tên',
+                    icon: Icons.person_outline,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: emailController,
+                    label: 'Email',
+                    icon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: mobileController,
+                    label: 'Số điện thoại',
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: passwordController,
+                    label: 'Mật khẩu mới (nếu thay đổi)',
+                    icon: Icons.lock_outline,
+                    isPassword: true,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: addressController,
+                    label: 'Địa chỉ',
+                    icon: Icons.location_on_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFDFE6E9)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButton<String>(
+                      value: role,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF0984E3)),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'user',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.person, color: Color(0xFF0984E3)),
+                              const SizedBox(width: 8),
+                              const Text('Người dùng'),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'admin',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.admin_panel_settings, color: Color(0xFF0984E3)),
+                              const SizedBox(width: 8),
+                              const Text('Quản trị viên'),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          role = value!;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: isBlocked,
+                        onChanged: (value) {
+                          setState(() {
+                            isBlocked = value!;
+                          });
+                        },
+                        activeColor: const Color(0xFFE74C3C),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const Text(
+                        'Chặn người dùng',
+                        style: TextStyle(fontSize: 15, color: Color(0xFF2D3436)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final result = await FilePicker.platform.pickFiles(type: FileType.image);
+                        if (result != null) {
+                          setState(() {
+                            avatarFile = File(result.files.single.path!);
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Ảnh đại diện đã được chọn')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.image, color: Color(0xFF0984E3)),
+                      label: const Text('Chọn Ảnh Đại Diện', style: TextStyle(color: Color(0xFF0984E3))),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEAF1FB),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF636E72),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Hủy'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            updateUser(
+                              firstName: firstNameController.text,
+                              lastName: lastNameController.text,
+                              email: emailController.text,
+                              mobile: mobileController.text,
+                              password: passwordController.text.isNotEmpty ? passwordController.text : null,
+                              role: role,
+                              isBlocked: isBlocked,
+                              address: addressController.text.isNotEmpty ? addressController.text : null,
+                              avatarFile: avatarFile,
+                            );
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0984E3),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Lưu'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () {
-                updateUser(
-                  firstName: firstNameController.text,
-                  lastName: lastNameController.text,
-                  email: emailController.text,
-                  mobile: mobileController.text,
-                  password: passwordController.text.isNotEmpty ? passwordController.text : null,
-                  role: role,
-                  isBlocked: isBlocked,
-                  address: addressController.text.isNotEmpty ? addressController.text : null,
-                  avatarFile: avatarFile,
-                );
-                Navigator.pop(context);
-              },
-              child: const Text('Lưu'),
-            ),
-          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isPassword = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 15),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Color(0xFF636E72), fontSize: 14),
+        prefixIcon: Icon(icon, color: const Color(0xFF0984E3)),
+        filled: true,
+        fillColor: const Color(0xFFF5F6FA),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF0984E3), width: 2),
         ),
       ),
     );
