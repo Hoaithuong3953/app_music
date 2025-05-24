@@ -91,11 +91,7 @@ class DashboardPage extends StatelessWidget {
                 title: 'Quản lý Nghệ sĩ',
                 icon: Icons.person,
                 color: Colors.red,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Chức năng đang phát triển')),
-                  );
-                },
+                onTap: () => Navigator.pushNamed(context, '/admin/artist'),
               ),
               _buildManagementCard(
                 context,

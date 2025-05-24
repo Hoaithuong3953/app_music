@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:music_player_app/config/validator.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
@@ -97,14 +98,9 @@ class AdminUserPageState extends State<AdminUserPage> {
         avatarFile: avatarFile,
         token: userProvider.user?.token ?? '',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tạo người dùng thành công')),
-      );
-      fetchUsers();
+      return;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      throw e; // Ném lỗi để dialog xử lý
     }
   }
 
@@ -271,6 +267,12 @@ class AdminUserPageState extends State<AdminUserPage> {
     final addressController = TextEditingController();
     String role = 'user';
     File? avatarFile;
+    String? firstNameError;
+    String? lastNameError;
+    String? emailError;
+    String? mobileError;
+    String? passwordError;
+    String? apiError;
 
     showDialog(
       context: context,
@@ -305,6 +307,12 @@ class AdminUserPageState extends State<AdminUserPage> {
                       label: 'Họ',
                       icon: Icons.person_outline,
                       isRequired: true,
+                      errorText: firstNameError,
+                      onChanged: (value) {
+                        setState(() {
+                          firstNameError = Validator.validateRequiredField(value, 'Họ');
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -312,6 +320,12 @@ class AdminUserPageState extends State<AdminUserPage> {
                       label: 'Tên',
                       icon: Icons.person_outline,
                       isRequired: true,
+                      errorText: lastNameError,
+                      onChanged: (value) {
+                        setState(() {
+                          lastNameError = Validator.validateRequiredField(value, 'Tên');
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -320,6 +334,12 @@ class AdminUserPageState extends State<AdminUserPage> {
                       icon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
                       isRequired: true,
+                      errorText: emailError,
+                      onChanged: (value) {
+                        setState(() {
+                          emailError = Validator.validateEmail(value);
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -328,6 +348,12 @@ class AdminUserPageState extends State<AdminUserPage> {
                       icon: Icons.phone_outlined,
                       keyboardType: TextInputType.phone,
                       isRequired: true,
+                      errorText: mobileError,
+                      onChanged: (value) {
+                        setState(() {
+                          mobileError = Validator.validateMobile(value);
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -336,6 +362,12 @@ class AdminUserPageState extends State<AdminUserPage> {
                       icon: Icons.lock_outline,
                       isPassword: true,
                       isRequired: true,
+                      errorText: passwordError,
+                      onChanged: (value) {
+                        setState(() {
+                          passwordError = Validator.validateRequiredField(value, 'Mật khẩu');
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -408,6 +440,14 @@ class AdminUserPageState extends State<AdminUserPage> {
                         ),
                       ),
                     ),
+                    if (apiError != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        apiError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     Row(
                       children: [
@@ -427,17 +467,25 @@ class AdminUserPageState extends State<AdminUserPage> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              if (firstNameController.text.isEmpty ||
-                                  lastNameController.text.isEmpty ||
-                                  emailController.text.isEmpty ||
-                                  mobileController.text.isEmpty ||
-                                  passwordController.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Vui lòng điền đầy đủ các trường bắt buộc')),
-                                );
+                            onPressed: () async {
+                              // Validation
+                              setState(() {
+                                firstNameError = Validator.validateRequiredField(firstNameController.text, 'Họ');
+                                lastNameError = Validator.validateRequiredField(lastNameController.text, 'Tên');
+                                emailError = Validator.validateEmail(emailController.text);
+                                mobileError = Validator.validateMobile(mobileController.text);
+                                passwordError = Validator.validateRequiredField(passwordController.text, 'Mật khẩu');
+                                apiError = null; // Reset API error
+                              });
+
+                              if (firstNameError != null ||
+                                  lastNameError != null ||
+                                  emailError != null ||
+                                  mobileError != null ||
+                                  passwordError != null) {
                                 return;
                               }
+
                               final userData = {
                                 'firstName': firstNameController.text,
                                 'lastName': lastNameController.text,
@@ -447,8 +495,39 @@ class AdminUserPageState extends State<AdminUserPage> {
                                 'role': role,
                                 'address': addressController.text,
                               };
-                              createUser(userData, avatarFile);
-                              Navigator.pop(context);
+
+                              try {
+                                await createUser(userData, avatarFile);
+                                Navigator.pop(context);
+                                fetchUsers(); // Refresh danh sách người dùng
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(Icons.check_circle, color: Colors.white),
+                                        const SizedBox(width: 8),
+                                        const Text('Tạo người dùng thành công'),
+                                      ],
+                                    ),
+                                    backgroundColor: const Color(0xFF00B894),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    margin: const EdgeInsets.all(16),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              } catch (e) {
+                                setState(() {
+                                  apiError = e.toString();
+                                  if (apiError!.contains('User has existed')) {
+                                    apiError = 'Email đã tồn tại. Vui lòng sử dụng email khác.';
+                                  } else if (apiError!.contains('Phone number has existed')) {
+                                    apiError = 'Số điện thoại đã tồn tại. Vui lòng sử dụng số khác.';
+                                  }
+                                });
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0984E3),
@@ -480,28 +559,46 @@ class AdminUserPageState extends State<AdminUserPage> {
     bool isPassword = false,
     bool isRequired = false,
     TextInputType keyboardType = TextInputType.text,
+    String? errorText,
+    ValueChanged<String>? onChanged,
   }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 15),
-      decoration: InputDecoration(
-        labelText: label + (isRequired ? ' *' : ''),
-        labelStyle: const TextStyle(color: Color(0xFF636E72), fontSize: 14),
-        prefixIcon: Icon(icon, color: const Color(0xFF0984E3)),
-        filled: true,
-        fillColor: const Color(0xFFF5F6FA),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          obscureText: isPassword,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 15),
+          decoration: InputDecoration(
+            labelText: label + (isRequired ? ' *' : ''),
+            labelStyle: const TextStyle(color: Color(0xFF636E72), fontSize: 14),
+            prefixIcon: Icon(icon, color: const Color(0xFF0984E3)),
+            filled: true,
+            fillColor: const Color(0xFFF5F6FA),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF0984E3), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE74C3C)),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE74C3C), width: 2),
+            ),
+            errorText: errorText,
+            errorStyle: const TextStyle(color: Color(0xFFE74C3C)),
+          ),
+          onChanged: onChanged,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF0984E3), width: 2),
-        ),
-      ),
+      ],
     );
   }
 
