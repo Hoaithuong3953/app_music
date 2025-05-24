@@ -26,9 +26,9 @@ class Genre {
       description: json['description']?.toString() ?? '',
       slugify: json['slugify']?.toString() ?? '',
       coverImage: json['coverImage']?.toString() ?? 'https://media.istockphoto.com/id/1396814518/vector/image-coming-soon-no-photo-no-thumbnail-image-available-vector-illustration.jpg?s=612x612&w=0&k=20&c=hnh2OZgQGhf0b46-J2z7aHbIWwq8HNlSDaNp2wn_iko=',
-      songs: (json['songs'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      songs: (json['songs'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? e['_id']?.toString() ?? '' : e.toString()).toList() ?? [],
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 

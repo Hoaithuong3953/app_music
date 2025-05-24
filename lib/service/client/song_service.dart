@@ -5,11 +5,12 @@ import '../../models/song.dart';
 class SongService {
   final ApiClient _apiClient = ApiClient();
 
-  // Lấy danh sách tất cả bài hát với tìm kiếm theo title
+  // Lấy danh sách tất cả bài hát với tìm kiếm theo title hoặc likes
   Future<List<Map<String, dynamic>>> getAllSongs({
     int page = 1,
     int limit = 10,
     String? title,
+    String? likes,
     String? sort,
     String? fields,
   }) async {
@@ -18,6 +19,7 @@ class SongService {
       queryParams['page'] = page.toString();
       queryParams['limit'] = limit.toString();
       if (title != null) queryParams['title'] = title;
+      if (likes != null) queryParams['likes'] = likes;
       if (sort != null) queryParams['sort'] = sort;
       if (fields != null) queryParams['fields'] = fields;
 

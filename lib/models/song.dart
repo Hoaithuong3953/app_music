@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Song {
   final String id;
   final String title;
@@ -10,6 +12,8 @@ class Song {
   final String? slugify;
   final String? url;
   final String? coverImage;
+  final int views; // Thêm trường views
+  final int trendingScore; // Thêm trường trendingScore
   final List<String> likes; // Danh sách tham chiếu đến User (ObjectId)
   final List<Comment> comments;
   final DateTime createdAt;
@@ -27,6 +31,8 @@ class Song {
     this.slugify,
     this.url,
     this.coverImage,
+    this.views = 0,
+    this.trendingScore = 0,
     this.likes = const [],
     this.comments = const [],
     required this.createdAt,
@@ -39,11 +45,10 @@ class Song {
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString(),
       lyrics: json['lyrics']?.toString(),
-      // Parse artist từ object thành String (title của nghệ sĩ)
       artist: json['artist'] != null
           ? (json['artist'] is Map<String, dynamic> && json['artist']['title'] != null
-          ? json['artist']['title'].toString()
-          : json['artist'].toString())
+              ? json['artist']['title'].toString()
+              : json['artist'].toString())
           : null,
       album: json['album']?.toString(),
       genre: (json['genre'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
@@ -51,6 +56,8 @@ class Song {
       slugify: json['slugify']?.toString(),
       url: json['url']?.toString(),
       coverImage: json['coverImage']?.toString(),
+      views: json['views']?.toInt() ?? 0,
+      trendingScore: json['trendingScore']?.toInt() ?? 0,
       likes: (json['likes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       comments: (json['comments'] as List<dynamic>?)?.map((e) => Comment.fromJson(e)).toList() ?? [],
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
@@ -71,6 +78,8 @@ class Song {
       'slugify': slugify,
       'url': url,
       'coverImage': coverImage,
+      'views': views,
+      'trendingScore': trendingScore,
       'likes': likes,
       'comments': comments.map((e) => e.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),

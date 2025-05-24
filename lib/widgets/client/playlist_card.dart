@@ -9,12 +9,14 @@ class PlaylistCard extends StatefulWidget {
   final String ownerName;
   final int songCount;
   final VoidCallback? onPlaylistUpdated;
+  final VoidCallback? onTap; // Thêm tham số onTap
 
   const PlaylistCard({
     required this.playlist,
     required this.ownerName,
     required this.songCount,
     this.onPlaylistUpdated,
+    this.onTap, // Thêm vào constructor
     super.key,
   });
 
@@ -84,23 +86,23 @@ class _PlaylistCardState extends State<PlaylistCard> {
                     ),
                     child: _selectedImage != null
                         ? Image.file(
-                      _selectedImage!,
-                      fit: BoxFit.cover,
-                    )
+                            _selectedImage!,
+                            fit: BoxFit.cover,
+                          )
                         : widget.playlist.coverImageURL != null &&
-                        widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
-                        ? Image.network(
-                      widget.playlist.coverImageURL!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Image.asset(
-                        'images/default_cover.jpg',
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                        : Image.asset(
-                      'images/default_cover.jpg',
-                      fit: BoxFit.cover,
-                    ),
+                                widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
+                            ? Image.network(
+                                widget.playlist.coverImageURL!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Image.asset(
+                                  'images/default_cover.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.asset(
+                                'images/default_cover.jpg',
+                                fit: BoxFit.cover,
+                              ),
                   ),
                 ),
               ],
@@ -220,35 +222,38 @@ class _PlaylistCardState extends State<PlaylistCard> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: widget.playlist.coverImageURL != null &&
-                widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
+                    widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
                 ? Image.network(
-              widget.playlist.coverImageURL!,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Image.asset(
-                'images/default_cover.jpg',
-                fit: BoxFit.cover,
-              ),
-            )
+                    widget.playlist.coverImageURL!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                      'images/default_cover.jpg',
+                      fit: BoxFit.cover,
+                    ),
+                  )
                 : Image.asset(
-              'images/default_cover.jpg',
-              fit: BoxFit.cover,
-            ),
+                    'images/default_cover.jpg',
+                    fit: BoxFit.cover,
+                  ),
           ),
           title: Text(
             widget.playlist.title,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontSize: screenHeight * 0.02,
-            ),
+                  fontSize: screenHeight * 0.02,
+                ),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
           ),
-          subtitle: Text(
-            '${widget.songCount} songs',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: screenHeight * 0.018,
+          subtitle: Opacity(
+            opacity: 0.6,
+            child: Text(
+              widget.ownerName,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: screenHeight * 0.018,
+                  ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
           ),
           trailing: PopupMenuButton<String>(
             icon: Icon(
@@ -274,6 +279,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
               ),
             ],
           ),
+          onTap: widget.onTap, // Áp dụng onTap cho ListTile
         ),
       ),
     );

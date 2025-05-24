@@ -12,6 +12,7 @@ class SongTile extends StatelessWidget {
   final String artistName;
   final List<Song>? playlist;
   final String? playlistId;
+  final VoidCallback? onTap;
 
   const SongTile({
     required this.song,
@@ -20,6 +21,7 @@ class SongTile extends StatelessWidget {
     this.isRanking = false,
     this.playlist,
     this.playlistId,
+    this.onTap,
     super.key,
   });
 
@@ -36,21 +38,17 @@ class SongTile extends StatelessWidget {
       final audioHandlerProvider = Provider.of<AudioHandlerProvider>(context, listen: false);
       final playbackProvider = Provider.of<PlaybackProvider>(context, listen: false);
 
-      // Cập nhật danh sách phát và playlistId
       if (playlist != null) {
         songProvider.setPlaylist(playlist!, playlistId: playlistId ?? 'homepage');
       } else {
         songProvider.setPlaylist([song], playlistId: 'single_song_${song.id}');
       }
 
-      // Cập nhật bài hát hiện tại
       songProvider.setCurrentSong(song);
 
-      // Nếu bài hát hiện tại đã là bài này và đang phát, thì tạm dừng
       if (songProvider.currentSong?.id == song.id && playbackProvider.isPlaying) {
         await audioHandlerProvider.playPause();
       } else {
-        // Phát bài hát mới
         await audioHandlerProvider.playSong(song);
       }
     } catch (e) {
@@ -81,10 +79,10 @@ class SongTile extends StatelessWidget {
                 child: Text(
                   '$index',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontSize: isRanking ? screenHeight * 0.025 : screenHeight * 0.02,
-                    color: isRanking ? Colors.grey[800] : Colors.grey[600],
-                    fontWeight: isRanking ? FontWeight.bold : FontWeight.normal,
-                  ),
+                        fontSize: isRanking ? screenHeight * 0.025 : screenHeight * 0.02,
+                        color: isRanking ? Colors.grey[800] : Colors.grey[600],
+                        fontWeight: isRanking ? FontWeight.bold : FontWeight.normal,
+                      ),
                 ),
               ),
               SizedBox(width: screenWidth * 0.02),
@@ -97,45 +95,45 @@ class SongTile extends StatelessWidget {
                 ),
                 child: song.coverImage != null
                     ? ClipOval(
-                  child: Image.network(
-                    song.coverImage!,
-                    fit: BoxFit.cover,
-                    width: avatarSize,
-                    height: avatarSize,
-                    errorBuilder: (context, error, stackTrace) => Center(
-                      child: Text(
-                        song.title.isNotEmpty ? song.title[0].toUpperCase() : 'S',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
-                          fontSize: avatarSize * 0.4,
+                        child: Image.network(
+                          song.coverImage!,
+                          fit: BoxFit.cover,
+                          width: avatarSize,
+                          height: avatarSize,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Text(
+                              song.title.isNotEmpty ? song.title[0].toUpperCase() : 'S',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: avatarSize * 0.4,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          song.title.isNotEmpty ? song.title[0].toUpperCase() : 'S',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: Colors.white,
+                                fontSize: avatarSize * 0.4,
+                              ),
                         ),
                       ),
-                    ),
-                  ),
-                )
-                    : Center(
-                  child: Text(
-                    song.title.isNotEmpty ? song.title[0].toUpperCase() : 'S',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
-                      fontSize: avatarSize * 0.4,
-                    ),
-                  ),
-                ),
               ),
             ],
           ),
           title: Text(
             song.title,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontSize: screenHeight * 0.02,
-            ),
+                  fontSize: screenHeight * 0.02,
+                ),
           ),
           subtitle: Text(
             artistName,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: screenHeight * 0.018,
-            ),
+                  fontSize: screenHeight * 0.018,
+                ),
           ),
           trailing: IconButton(
             icon: Icon(
@@ -145,7 +143,7 @@ class SongTile extends StatelessWidget {
             ),
             onPressed: () => _playSong(context),
           ),
-          onTap: () => _playSong(context),
+          onTap: onTap, // Ưu tiên onTap tùy chỉnh, không dùng _playSong nếu onTap được cung cấp
         );
       },
     );
