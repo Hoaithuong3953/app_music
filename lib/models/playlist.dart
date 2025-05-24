@@ -51,4 +51,29 @@ class Playlist {
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
+
+  // Thêm phương thức copyWith
+  Playlist copyWith({
+    String? id,
+    String? title,
+    String? slugify,
+    String? coverImageURL,
+    dynamic user,
+    List<Song>? songs,
+    bool? isPublic,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Playlist(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      slugify: slugify ?? this.slugify,
+      coverImageURL: coverImageURL ?? this.coverImageURL,
+      user: user ?? this.user,
+      songs: songs ?? this.songs,
+      isPublic: isPublic ?? this.isPublic,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

@@ -8,7 +8,6 @@ import '../../models/user.dart';
 class UserService {
   final ApiClient _apiClient = ApiClient();
 
-  // Đăng nhập người dùng
   Future<User> login(String email, String password) async {
     try {
       final response = await _apiClient.post('user/login', {
@@ -29,14 +28,12 @@ class UserService {
     }
   }
 
-  // Đăng ký người dùng
   Future<User> register({
     required String firstName,
     required String lastName,
     required String email,
     required String mobile,
     required String password,
-    required String address,
   }) async {
     try {
       final response = await _apiClient.post('user/register', {
@@ -45,7 +42,6 @@ class UserService {
         'email': email,
         'mobile': mobile,
         'password': password,
-        'address': address,
       });
 
       if (response['success'] == true) {
@@ -58,7 +54,6 @@ class UserService {
     }
   }
 
-  // Lấy thông tin người dùng hiện tại
   Future<User?> getCurrentUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -90,13 +85,13 @@ class UserService {
     }
   }
 
-  // Cập nhật thông tin người dùng (bao gồm mật khẩu)
   Future<User> updateUser({
     String? firstName,
     String? lastName,
     String? email,
     String? mobile,
     String? password,
+    String? avatarImgURL, // Thêm tham số avatarImgURL để hỗ trợ xoá avatar
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -112,6 +107,7 @@ class UserService {
       if (email != null) body['email'] = email;
       if (mobile != null) body['mobile'] = mobile;
       if (password != null) body['password'] = password;
+      if (avatarImgURL != null) body['avatarImgURL'] = avatarImgURL; // Gửi avatarImgURL (có thể là null để xoá)
 
       final response = await _apiClient.put('user/current', body, token: accessToken);
 
@@ -127,20 +123,32 @@ class UserService {
     }
   }
 
-  // Cập nhật ảnh đại diện người dùng
   Future<User> updateAvatar(File avatar) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final accessToken = prefs.getString('accessToken');
+      final user = await getCurrentUser();
 
       if (accessToken == null) {
         throw Exception('No access token found');
       }
 
-      // Tạo multipart request để tải file lên
+      if (user == null || user.email == null) {
+        throw Exception('User email not found');
+      }
+
       var request = http.MultipartRequest('PUT', Uri.parse('${_apiClient.baseUrl}/user/current'));
       request.headers['Authorization'] = 'Bearer $accessToken';
-      request.files.add(await http.MultipartFile.fromPath('avatar', avatar.path));
+
+      // Thêm email của người dùng vào req.body dưới dạng title
+      request.fields['title'] = user.email;
+
+      // Gửi file với filename hợp lệ
+      request.files.add(await http.MultipartFile.fromPath(
+        'avatar',
+        avatar.path,
+        filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      ));
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
@@ -162,7 +170,34 @@ class UserService {
     }
   }
 
-  // Đăng xuất người dùng
+  // Phương thức mới để xoá avatar
+  Future<User> removeAvatar() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
+
+      if (accessToken == null) {
+        throw Exception('No access token found');
+      }
+
+      final body = <String, dynamic>{
+        'avatarImgURL': null, // Gửi avatarImgURL là null để xoá
+      };
+
+      final response = await _apiClient.put('user/current', body, token: accessToken);
+
+      if (response['success'] == true) {
+        final userData = response['updateUser'] as Map<String, dynamic>;
+        userData['token'] = accessToken;
+        return User.fromJson(userData);
+      } else {
+        throw Exception(response['message'] ?? 'Remove avatar failed');
+      }
+    } catch (e) {
+      throw Exception('Remove avatar failed: $e');
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');

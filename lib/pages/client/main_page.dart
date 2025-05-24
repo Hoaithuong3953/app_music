@@ -4,6 +4,8 @@ import './home_page.dart';
 import './chart_page.dart';
 import './library_page.dart';
 import './profile_page.dart';
+import './playlist_detail_page.dart';
+import './search_page.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -12,24 +14,35 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
-  // Danh sách các trang con
-  final List<Widget> _pages = [
-    HomePage(),
-    ChartPage(),
-    LibraryPage(),
-    ProfilePage(),
+  // Danh sách các route cho từng tab
+  final List<String> _routes = [
+    '/home',
+    '/chart',
+    '/library',
+    '/profile',
+  ];
+
+  // Các route không hiển thị BottomNavigationBar và MiniPlayer
+  final List<String> _fullScreenRoutes = [
+    '/login',
+    '/register',
+    '/player-page',
+    '/edit-profile',
+    '/change-password',
+    '/all-songs',
   ];
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    _navigatorKey.currentState?.pushReplacementNamed(_routes[index]);
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       extendBody: true,
       body: SafeArea(
@@ -37,9 +50,49 @@ class _MainPageState extends State<MainPage> {
         child: Column(
           children: [
             Expanded(
-              child: _pages[_selectedIndex],
+              child: Navigator(
+                key: _navigatorKey,
+                initialRoute: '/home',
+                onGenerateRoute: (settings) {
+                  Widget page;
+                  // Kiểm tra settings.name không null trước khi sử dụng
+                  final routeName = settings.name;
+                  if (routeName != null && _fullScreenRoutes.contains(routeName)) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.of(context).pushNamed(routeName, arguments: settings.arguments);
+                    });
+                    return null; // Trả về null để không xử lý trong Navigator con
+                  }
+
+                  switch (routeName) {
+                    case '/home':
+                      page = HomePage();
+                      break;
+                    case '/chart':
+                      page = ChartPage();
+                      break;
+                    case '/library':
+                      page = LibraryPage();
+                      break;
+                    case '/profile':
+                      page = ProfilePage();
+                      break;
+                    case '/playlist-detail':
+                      final arguments = settings.arguments as Map<String, dynamic>?;
+                      final playlistId = arguments?['playlistId'] as String?;
+                      page = PlaylistDetailPage(playlistId: playlistId);
+                      break;
+                    case '/search':
+                      page = SearchPage();
+                      break;
+                    default:
+                      page = HomePage();
+                  }
+                  return MaterialPageRoute(builder: (_) => page, settings: settings);
+                },
+              ),
             ),
-            MiniPlayer(),
+            const MiniPlayer(),
             BottomNavigationBar(
               type: BottomNavigationBarType.fixed,
               items: const [

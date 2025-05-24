@@ -15,12 +15,12 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
   String? _firstNameError;
   String? _lastNameError;
   String? _emailError;
   String? _mobileError;
   String? _passwordError;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,7 +29,6 @@ class _RegisterPageState extends State<RegisterPage> {
     _emailController.dispose();
     _mobileController.dispose();
     _passwordController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -53,7 +52,12 @@ class _RegisterPageState extends State<RegisterPage> {
     return isValid;
   }
 
-  InputDecoration _buildInputDecoration(BuildContext context, String labelText, IconData icon, {bool isRequired = false}) {
+  InputDecoration _buildInputDecoration(
+      BuildContext context,
+      String labelText,
+      IconData icon, {
+        bool isRequired = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
     return InputDecoration(
       label: Row(
@@ -254,24 +258,14 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
                     ],
-                    SizedBox(height: screenHeight * 0.02),
-                    TextField(
-                      controller: _addressController,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontSize: screenHeight * 0.02,
-                        color: Colors.black,
-                      ),
-                      decoration: _buildInputDecoration(
-                        context,
-                        'Address',
-                        Icons.location_on,
-                        isRequired: false,
-                      ),
-                    ),
                     SizedBox(height: screenHeight * 0.03),
                     ElevatedButton(
-                      onPressed: () async {
+                      onPressed: _isLoading ? null : () async {
                         if (!_validateInputs()) return;
+
+                        setState(() {
+                          _isLoading = true;
+                        });
 
                         try {
                           final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -281,17 +275,19 @@ class _RegisterPageState extends State<RegisterPage> {
                             email: _emailController.text.trim(),
                             mobile: _mobileController.text.trim(),
                             password: _passwordController.text.trim(),
-                            address: _addressController.text.trim(),
                           );
+
                           showDialog(
                             context: context,
                             builder: (context) => CustomAlertDialog(
                               isSuccess: true,
                               title: 'Success',
-                              message: 'Registration successful. Please login.',
+                              message: 'Registration successful.',
                               autoDismiss: true,
                               autoDismissDuration: Duration(seconds: 2),
-                              onConfirm: () => Navigator.pushReplacementNamed(context, '/login'),
+                              onConfirm: () {
+                                Navigator.pushReplacementNamed(context, '/main');
+                              },
                             ),
                           );
                         } catch (e) {
@@ -315,6 +311,10 @@ class _RegisterPageState extends State<RegisterPage> {
                               autoDismissDuration: Duration(seconds: 4),
                             ),
                           );
+                        } finally {
+                          setState(() {
+                            _isLoading = false;
+                          });
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -327,7 +327,9 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         minimumSize: Size(screenWidth - 32, 56),
                       ),
-                      child: Text(
+                      child: _isLoading
+                          ? const CircularProgressIndicator()
+                          : Text(
                         'Register',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           fontSize: screenHeight * 0.02,
@@ -336,29 +338,28 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.02),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      },
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: "Already have an account? ",
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontSize: screenHeight * 0.02,
-                              ),
-                            ),
-                            TextSpan(
-                              text: "Login",
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontSize: screenHeight * 0.02,
-                                color: Theme.of(context).highlightColor,
-                              ),
-                            ),
-                          ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Already have an account? ",
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontSize: screenHeight * 0.02,
+                          ),
                         ),
-                      ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                          child: Text(
+                            "Login",
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontSize: screenHeight * 0.02,
+                              color: Theme.of(context).highlightColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

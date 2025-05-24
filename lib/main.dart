@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:music_player_app/providers/ranking_provider.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'pages/admin/dashboard_page.dart';
@@ -33,6 +34,7 @@ class MusicPlayerApp extends StatelessWidget {
             return audioHandlerProvider;
           },
         ),
+        ChangeNotifierProvider(create: (_) => RankingProvider()),
       ],
       child: MaterialApp(
         title: 'Music Player',

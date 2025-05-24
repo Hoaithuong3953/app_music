@@ -7,10 +7,9 @@ class User {
   final String email;
   final String mobile;
   final String role;
-  final String? address;
   final bool isBlocked;
   final String? token;
-  final String? avatarImgURL; // Thêm trường mới
+  final String? avatarImgURL;
 
   User({
     required this.id,
@@ -19,14 +18,13 @@ class User {
     required this.email,
     required this.mobile,
     required this.role,
-    this.address,
     this.isBlocked = false,
     this.token,
     this.avatarImgURL,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    print('Parsing User.fromJson: $json'); // Thêm log để debug
+    print('Parsing User.fromJson: $json');
     return User(
       id: json['_id']?.toString() ?? '',
       firstName: json['firstName']?.toString() ?? '',
@@ -34,7 +32,6 @@ class User {
       email: json['email']?.toString() ?? '',
       mobile: json['mobile']?.toString() ?? '',
       role: json['role']?.toString() ?? 'user',
-      address: json['address']?.toString(),
       isBlocked: json['isBlocked'] == true,
       token: json['token']?.toString(),
       avatarImgURL: json['avatarImgURL']?.toString(),
@@ -49,7 +46,6 @@ class User {
       'email': email,
       'mobile': mobile,
       'role': role,
-      'address': address,
       'isBlocked': isBlocked,
       'token': token,
       'avatarImgURL': avatarImgURL,

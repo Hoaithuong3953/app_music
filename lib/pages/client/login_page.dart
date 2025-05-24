@@ -14,7 +14,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   String? _emailError;
   String? _passwordError;
-  bool _isLoading = false; // Thêm biến để quản lý trạng thái loading
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -50,7 +50,6 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
 
-      // Kiểm tra role và điều hướng phù hợp
       final user = userProvider.user;
       if (user != null) {
         showDialog(
@@ -239,37 +238,36 @@ class _LoginPageState extends State<LoginPage> {
                       child: _isLoading
                           ? const CircularProgressIndicator()
                           : Text(
-                              'Login',
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontSize: screenHeight * 0.02,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                    ),
-                    SizedBox(height: screenHeight * 0.02),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/register');
-                      },
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: "Don't have an account? ",
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontSize: screenHeight * 0.02,
-                                  ),
-                            ),
-                            TextSpan(
-                              text: "Sign up",
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontSize: screenHeight * 0.02,
-                                    color: Theme.of(context).highlightColor,
-                                  ),
-                            ),
-                          ],
+                        'Login',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontSize: screenHeight * 0.02,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                    ),
+                    SizedBox(height: screenHeight * 0.02),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Don't have an account? ",
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontSize: screenHeight * 0.02,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pushReplacementNamed(context, '/register');
+                          },
+                          child: Text(
+                            "Sign up",
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontSize: screenHeight * 0.02,
+                              color: Theme.of(context).highlightColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

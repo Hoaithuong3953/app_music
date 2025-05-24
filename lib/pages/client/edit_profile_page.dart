@@ -21,6 +21,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _emailError;
   String? _mobileError;
   File? _selectedImage;
+  bool _removeAvatar = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -65,35 +67,206 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+      final tempImage = File(pickedFile.path);
+      bool tempRemoveAvatar = false;
 
-      try {
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
+      // Hiển thị popup điều chỉnh ảnh
+      await showDialog(
+        context: context,
+        builder: (context) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final screenHeight = MediaQuery.of(context).size.height;
+          final dialogWidth = screenWidth * 0.9;
+          final dialogHeight = screenHeight * 0.6;
+          final previewSize = dialogWidth * 0.5;
+          double scale = 1.0;
+          double dx = 0.0;
+          double dy = 0.0;
+
+          return Dialog(
+            child: Container(
+              width: dialogWidth,
+              height: dialogHeight,
+              padding: EdgeInsets.all(16),
+              child: StatefulBuilder(
+                builder: (context, setDialogState) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Adjust Avatar',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Expanded(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Ảnh gốc mờ làm nền
+                            Positioned.fill(
+                              child: Opacity(
+                                opacity: 0.3,
+                                child: Transform(
+                                  transform: Matrix4.identity()
+                                    ..scale(scale)
+                                    ..translate(dx, dy),
+                                  child: Image.file(
+                                    tempImage,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Vùng điều chỉnh hình tròn trong suốt
+                            GestureDetector(
+                              onScaleUpdate: (details) {
+                                setDialogState(() {
+                                  scale = details.scale.clamp(0.5, 4.0);
+                                  dx += details.focalPointDelta.dx / scale;
+                                  dy += details.focalPointDelta.dy / scale;
+                                });
+                              },
+                              child: Container(
+                                width: previewSize,
+                                height: previewSize,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.black54, width: 2),
+                                ),
+                                child: ClipOval(
+                                  child: Transform(
+                                    transform: Matrix4.identity()
+                                      ..scale(scale)
+                                      ..translate(dx, dy),
+                                    child: Image.file(
+                                      tempImage,
+                                      fit: BoxFit.cover,
+                                      width: previewSize,
+                                      height: previewSize,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              tempRemoveAvatar = true;
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Remove',
+                              style: TextStyle(color: Colors.red, fontSize: 16),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(color: Colors.grey, fontSize: 16),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              setState(() {
+                                if (!tempRemoveAvatar) {
+                                  _selectedImage = tempImage;
+                                  _removeAvatar = false;
+                                } else {
+                                  _selectedImage = null;
+                                  _removeAvatar = true;
+                                }
+                              });
+                            },
+                            child: Text(
+                              'Done',
+                              style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  Future<void> _saveChanges() async {
+    if (!_validateInputs()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+      if (_removeAvatar) {
+        await userProvider.removeAvatar();
+      } else if (_selectedImage != null) {
         await userProvider.updateAvatar(_selectedImage!);
-        showDialog(
-          context: context,
-          builder: (context) => CustomAlertDialog(
-            isSuccess: true,
-            title: 'Success',
-            message: 'Avatar updated successfully.',
-            autoDismiss: true,
-            autoDismissDuration: Duration(seconds: 2),
-          ),
-        );
-      } catch (e) {
-        showDialog(
-          context: context,
-          builder: (context) => CustomAlertDialog(
-            isSuccess: false,
-            title: 'Error',
-            message: 'Failed to update avatar: $e',
-            autoDismiss: true,
-            autoDismissDuration: Duration(seconds: 4),
-          ),
-        );
       }
+
+      await userProvider.updateUser(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim(),
+        mobile: _mobileController.text.trim(),
+      );
+
+      showDialog(
+        context: context,
+        builder: (context) => CustomAlertDialog(
+          isSuccess: true,
+          title: 'Success',
+          message: 'Profile updated successfully.',
+          autoDismiss: true,
+          autoDismissDuration: Duration(seconds: 2),
+          onConfirm: () => Navigator.pop(context),
+        ),
+      );
+    } catch (e) {
+      String error = e.toString();
+      if (error.contains("Email already exists")) {
+        error = "Email is already registered.";
+      } else if (error.contains("Mobile already exists")) {
+        error = "Mobile number is already registered.";
+      } else if (error.contains("Missing input")) {
+        error = "Please fill in at least one field.";
+      } else {
+        error = "Failed to update profile. Please try again.";
+      }
+      showDialog(
+        context: context,
+        builder: (context) => CustomAlertDialog(
+          isSuccess: false,
+          title: 'Error',
+          message: error,
+          autoDismiss: true,
+          autoDismissDuration: Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -182,36 +355,58 @@ class _EditProfilePageState extends State<EditProfilePage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(height: screenHeight * 0.03),
-                // Hiển thị và chọn ảnh đại diện
                 Stack(
                   alignment: Alignment.bottomRight,
                   children: [
                     CircleAvatar(
                       radius: screenHeight * 0.08,
                       backgroundColor: Theme.of(context).primaryColor,
-                      backgroundImage: _selectedImage != null
-                          ? FileImage(_selectedImage!)
-                          : (user?.avatarImgURL != null
-                          ? NetworkImage(user!.avatarImgURL!) as ImageProvider
-                          : null),
-                      child: user?.avatarImgURL == null && _selectedImage == null
-                          ? Text(
-                        (_firstNameController.text.isNotEmpty
-                            ? _firstNameController.text[0].toUpperCase()
-                            : 'U'),
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontSize: screenHeight * 0.06,
-                          color: Colors.white,
-                        ),
-                      )
-                          : null,
+                      child: ClipOval(
+                        child: _selectedImage != null
+                            ? Image.file(
+                          _selectedImage!,
+                          fit: BoxFit.cover,
+                          width: screenHeight * 0.16,
+                          height: screenHeight * 0.16,
+                        )
+                            : (user?.avatarImgURL != null && !_removeAvatar
+                            ? Image.network(
+                          user!.avatarImgURL!,
+                          fit: BoxFit.cover,
+                          width: screenHeight * 0.16,
+                          height: screenHeight * 0.16,
+                          errorBuilder: (context, error, stackTrace) => Text(
+                            (_firstNameController.text.isNotEmpty
+                                ? _firstNameController.text[0].toUpperCase()
+                                : 'U'),
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                              fontSize: screenHeight * 0.06,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                            : Text(
+                          (_firstNameController.text.isNotEmpty
+                              ? _firstNameController.text[0].toUpperCase()
+                              : 'U'),
+                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                            fontSize: screenHeight * 0.06,
+                            color: Colors.white,
+                          ),
+                        )),
+                      ),
                     ),
                     GestureDetector(
                       onTap: _pickImage,
                       child: CircleAvatar(
                         radius: screenHeight * 0.02,
                         backgroundColor: Theme.of(context).highlightColor,
-                        child: Icon(
+                        child: _isLoading
+                            ? CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        )
+                            : Icon(
                           Icons.camera_alt,
                           size: screenHeight * 0.02,
                           color: Colors.white,
@@ -318,51 +513,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ],
                 SizedBox(height: screenHeight * 0.03),
                 ElevatedButton(
-                  onPressed: () async {
-                    if (!_validateInputs()) return;
-
-                    try {
-                      final userProvider = Provider.of<UserProvider>(context, listen: false);
-                      await userProvider.updateUser(
-                        firstName: _firstNameController.text.trim(),
-                        lastName: _lastNameController.text.trim(),
-                        email: _emailController.text.trim(),
-                        mobile: _mobileController.text.trim(),
-                      );
-                      showDialog(
-                        context: context,
-                        builder: (context) => CustomAlertDialog(
-                          isSuccess: true,
-                          title: 'Success',
-                          message: 'Profile updated successfully.',
-                          autoDismiss: true,
-                          autoDismissDuration: Duration(seconds: 2),
-                          onConfirm: () => Navigator.pop(context),
-                        ),
-                      );
-                    } catch (e) {
-                      String error = e.toString();
-                      if (error.contains("Email already exists")) {
-                        error = "Email is already registered.";
-                      } else if (error.contains("Mobile already exists")) {
-                        error = "Mobile number is already registered.";
-                      } else if (error.contains("Missing input")) {
-                        error = "Please fill in at least one field.";
-                      } else {
-                        error = "Failed to update profile. Please try again.";
-                      }
-                      showDialog(
-                        context: context,
-                        builder: (context) => CustomAlertDialog(
-                          isSuccess: false,
-                          title: 'Error',
-                          message: error,
-                          autoDismiss: true,
-                          autoDismissDuration: Duration(seconds: 4),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _isLoading ? null : _saveChanges,
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(
                       vertical: screenHeight * 0.02,
@@ -373,7 +524,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                     minimumSize: Size(screenWidth - 32, 56),
                   ),
-                  child: Text(
+                  child: _isLoading
+                      ? const CircularProgressIndicator()
+                      : Text(
                     'Save Changes',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontSize: screenHeight * 0.02,

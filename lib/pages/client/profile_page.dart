@@ -13,6 +13,7 @@ class ProfilePage extends StatelessWidget {
     final firstName = userProvider.user?.firstName ?? 'User';
     final lastName = userProvider.user?.lastName ?? '';
     final userEmail = userProvider.user?.email ?? 'user@example.com';
+    final avatarImgURL = userProvider.user?.avatarImgURL; // Lấy avatarImgURL
 
     // Kết hợp firstName và lastName
     final fullName = '$firstName $lastName'.trim();
@@ -34,13 +35,16 @@ class ProfilePage extends StatelessWidget {
                   child: CircleAvatar(
                     radius: screenHeight * 0.1,
                     backgroundColor: Theme.of(context).primaryColor,
-                    child: Text(
+                    backgroundImage: avatarImgURL != null ? NetworkImage(avatarImgURL) : null, // Hiển thị ảnh từ avatarImgURL
+                    child: avatarImgURL == null // Nếu không có avatarImgURL, hiển thị chữ cái đầu
+                        ? Text(
                       fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontSize: screenHeight * 0.08,
                         color: Colors.white,
                       ),
-                    ),
+                    )
+                        : null,
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.02),

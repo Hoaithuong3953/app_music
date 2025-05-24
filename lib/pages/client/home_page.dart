@@ -128,6 +128,7 @@ class _HomePageState extends State<HomePage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final userProvider = Provider.of<UserProvider>(context);
     final userName = userProvider.user?.firstName ?? 'User';
+    final avatarImgURL = userProvider.user?.avatarImgURL; // Lấy avatarImgURL
 
     if (isLoading) {
       return Scaffold(
@@ -154,13 +155,16 @@ class _HomePageState extends State<HomePage> {
                   CircleAvatar(
                     radius: screenHeight * 0.03,
                     backgroundColor: Theme.of(context).primaryColor,
-                    child: Text(
+                    backgroundImage: avatarImgURL != null ? NetworkImage(avatarImgURL) : null, // Hiển thị ảnh từ avatarImgURL
+                    child: avatarImgURL == null // Nếu không có avatarImgURL, hiển thị chữ cái đầu
+                        ? Text(
                       userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontSize: screenHeight * 0.03,
                         color: Colors.white,
                       ),
-                    ),
+                    )
+                        : null,
                   ),
                   SizedBox(width: screenWidth * 0.03),
                   Text(
@@ -240,7 +244,7 @@ class _HomePageState extends State<HomePage> {
                         artistName: artistName,
                         index: entry.key + 1,
                         playlist: songList,
-                        playlistId: 'homepage', // Đặt playlistId là "homepage"
+                        playlistId: 'homepage',
                       );
                     },
                   ).toList(),

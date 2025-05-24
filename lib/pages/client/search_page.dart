@@ -120,138 +120,128 @@ class _SearchPageState extends State<SearchPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(screenWidth * 0.04, screenHeight * 0.03, screenWidth * 0.04, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.arrow_back,
-                        size: screenHeight * 0.03,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    SizedBox(width: screenWidth * 0.02),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search songs...',
-                          filled: true,
-                          fillColor: Colors.grey[200],
-                          prefixIcon: Icon(
-                            Icons.search,
-                            size: screenHeight * 0.03,
-                            color: Theme.of(context).highlightColor,
-                          ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              size: screenHeight * 0.03,
-                              color: Theme.of(context).highlightColor,
-                            ),
-                            onPressed: _clearSearch,
-                          )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onChanged: _onSearchChanged,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                if (!isSearching) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Search History',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontSize: screenHeight * 0.025,
-                          color: Theme.of(context).highlightColor,
-                        ),
-                      ),
-                      if (searchHistory.isNotEmpty)
-                        TextButton(
-                          onPressed: _clearSearchHistory,
-                          child: Text(
-                            'Clear',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: screenHeight * 0.018,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: screenHeight * 0.01),
-                  searchHistory.isEmpty
-                      ? Center(child: Text('No search history'))
-                      : Expanded(
-                    child: ListView.builder(
-                      itemCount: searchHistory.length,
-                      itemBuilder: (context, index) {
-                        final query = searchHistory[index];
-                        return ListTile(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.02,
-                            vertical: 0,
-                          ),
-                          title: Text(
-                            query,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontSize: screenHeight * 0.02,
-                            ),
-                          ),
-                          onTap: () {
-                            _searchController.text = query;
-                            _onSearch(query);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ] else ...[
-                  isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : errorMessage != null
-                      ? Center(child: Text('Error: $errorMessage'))
-                      : searchResults.isEmpty
-                      ? Center(child: Text('No results found'))
-                      : Expanded(
-                    child: ListView.builder(
-                      itemCount: searchResults.length,
-                      itemBuilder: (context, index) {
-                        final songData = searchResults[index];
-                        final song = songData['song'] as Song;
-                        final artistName = songData['artistName'] as String;
-                        return SongTile(
-                          song: song,
-                          artistName: artistName,
-                          index: index + 1,
-                          isRanking: false,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ],
-            ),
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        title: Text(
+          'Search',
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+            fontSize: screenHeight * 0.025,
+            color: Colors.black,
           ),
+        ),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(screenWidth * 0.04, screenHeight * 0.03, screenWidth * 0.04, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search songs...',
+                filled: true,
+                fillColor: Colors.grey[200],
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: screenHeight * 0.03,
+                  color: Theme.of(context).highlightColor,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                  icon: Icon(
+                    Icons.clear,
+                    size: screenHeight * 0.03,
+                    color: Theme.of(context).highlightColor,
+                  ),
+                  onPressed: _clearSearch,
+                )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: _onSearchChanged,
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            if (!isSearching) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Search History',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontSize: screenHeight * 0.025,
+                      color: Theme.of(context).highlightColor,
+                    ),
+                  ),
+                  if (searchHistory.isNotEmpty)
+                    TextButton(
+                      onPressed: _clearSearchHistory,
+                      child: Text(
+                        'Clear',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: screenHeight * 0.018,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(height: screenHeight * 0.01),
+              searchHistory.isEmpty
+                  ? Center(child: Text('No search history'))
+                  : Expanded(
+                child: ListView.builder(
+                  itemCount: searchHistory.length,
+                  itemBuilder: (context, index) {
+                    final query = searchHistory[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.02,
+                        vertical: 0,
+                      ),
+                      title: Text(
+                        query,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontSize: screenHeight * 0.02,
+                        ),
+                      ),
+                      onTap: () {
+                        _searchController.text = query;
+                        _onSearch(query);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ] else ...[
+              isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : errorMessage != null
+                  ? Center(child: Text('Error: $errorMessage'))
+                  : searchResults.isEmpty
+                  ? Center(child: Text('No results found'))
+                  : Expanded(
+                child: ListView.builder(
+                  itemCount: searchResults.length,
+                  itemBuilder: (context, index) {
+                    final songData = searchResults[index];
+                    final song = songData['song'] as Song;
+                    final artistName = songData['artistName'] as String;
+                    return SongTile(
+                      song: song,
+                      artistName: artistName,
+                      index: index + 1,
+                      isRanking: false,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

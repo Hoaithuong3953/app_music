@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../widgets/client/song_tile.dart';
+import 'package:provider/provider.dart';
 import '../../models/song.dart';
-import '../../service/client/song_service.dart';
+import '../../widgets/client/song_tile.dart';
+import '../../models/ranking_song.dart';
+import '../../providers/ranking_provider.dart';
+import '../../providers/song_provider.dart';
+import '../../providers/audio_handler_provider.dart';
+import '../../providers/playback_provider.dart';
 
 class ChartPage extends StatefulWidget {
   @override
@@ -9,27 +14,25 @@ class ChartPage extends StatefulWidget {
 }
 
 class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMixin {
-  final SongService _songService = SongService();
   late TabController _tabController;
-
-  // Danh sách bài hát cho từng tab
-  List<Map<String, dynamic>> dailySongs = [];
-  List<Map<String, dynamic>> weeklySongs = [];
-  List<Map<String, dynamic>> monthlySongs = [];
-
-  bool isLoadingDaily = true;
-  bool isLoadingWeekly = true;
-  bool isLoadingMonthly = true;
-
-  String? errorMessageDaily;
-  String? errorMessageWeekly;
-  String? errorMessageMonthly;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _fetchSongs();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      final rankingProvider = Provider.of<RankingProvider>(context, listen: false);
+      rankingProvider.fetchDailySongs();
+      rankingProvider.fetchWeeklySongs();
+      rankingProvider.fetchMonthlySongs();
+      _isInitialized = true;
+    }
   }
 
   @override
@@ -38,107 +41,36 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  Future<void> _fetchSongs() async {
-    setState(() {
-      isLoadingDaily = true;
-      isLoadingWeekly = true;
-      isLoadingMonthly = true;
-      errorMessageDaily = null;
-      errorMessageWeekly = null;
-      errorMessageMonthly = null;
-    });
-
+  Future<void> _playSong(BuildContext context, Song song, List<Song> playlist, String playlistId) async {
     try {
-      final fetchedSongs = await _songService.getAllSongs();
-      if (fetchedSongs.isEmpty) {
-        setState(() {
-          errorMessageDaily = 'No songs available';
-          errorMessageWeekly = 'No songs available';
-          errorMessageMonthly = 'No songs available';
-          isLoadingDaily = false;
-          isLoadingWeekly = false;
-          isLoadingMonthly = false;
-        });
+      if (song.url == null || song.url!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot play song: URL is missing')),
+        );
         return;
       }
 
-      // Sắp xếp bài hát theo createdAt giảm dần (mới nhất trước)
-      fetchedSongs.sort((a, b) {
-        final songA = a['song'] as Song;
-        final songB = b['song'] as Song;
-        return songB.createdAt.compareTo(songA.createdAt);
-      });
+      final songProvider = Provider.of<SongProvider>(context, listen: false);
+      final audioHandlerProvider = Provider.of<AudioHandlerProvider>(context, listen: false);
+      final playbackProvider = Provider.of<PlaybackProvider>(context, listen: false);
 
-      // Giả lập dữ liệu cho từng tab
-      final playsDaily = [1250000, 980000, 750000, 600000, 500000]; // Giả định số lần phát trong ngày
-      final playsWeekly = [2500000, 1960000, 1500000, 1200000, 1000000]; // Giả định số lần phát trong tuần
-      final playsMonthly = [5000000, 3920000, 3000000, 2400000, 2000000]; // Giả định số lần phát trong tháng
+      // Cập nhật danh sách phát và playlistId
+      songProvider.setPlaylist(playlist, playlistId: playlistId);
 
-      // Giả lập lọc bài hát theo ngày, tuần, tháng
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-      final startOfMonth = DateTime(now.year, now.month, 1);
+      // Cập nhật bài hát hiện tại
+      songProvider.setCurrentSong(song);
 
-      // Lọc bài hát theo ngày (giả lập: lấy 5 bài mới nhất)
-      final dailyFiltered = fetchedSongs.take(5).toList();
-      setState(() {
-        dailySongs = dailyFiltered.asMap().entries.map((entry) {
-          final index = entry.key;
-          final songData = entry.value;
-          final song = songData['song'] as Song;
-          final artistName = songData['artistName'] as String;
-          return {
-            'song': song,
-            'artistName': artistName,
-            'plays': index < playsDaily.length ? playsDaily[index] : 500000 - index * 10000,
-          };
-        }).toList();
-        isLoadingDaily = false;
-      });
-
-      // Lọc bài hát theo tuần (giả lập: lấy 10 bài mới nhất)
-      final weeklyFiltered = fetchedSongs.take(10).toList();
-      setState(() {
-        weeklySongs = weeklyFiltered.asMap().entries.map((entry) {
-          final index = entry.key;
-          final songData = entry.value;
-          final song = songData['song'] as Song;
-          final artistName = songData['artistName'] as String;
-          return {
-            'song': song,
-            'artistName': artistName,
-            'plays': index < playsWeekly.length ? playsWeekly[index] : 1000000 - index * 20000,
-          };
-        }).toList();
-        isLoadingWeekly = false;
-      });
-
-      // Lọc bài hát theo tháng (giả lập: lấy tất cả bài hát)
-      final monthlyFiltered = fetchedSongs.toList();
-      setState(() {
-        monthlySongs = monthlyFiltered.asMap().entries.map((entry) {
-          final index = entry.key;
-          final songData = entry.value;
-          final song = songData['song'] as Song;
-          final artistName = songData['artistName'] as String;
-          return {
-            'song': song,
-            'artistName': artistName,
-            'plays': index < playsMonthly.length ? playsMonthly[index] : 2000000 - index * 40000,
-          };
-        }).toList();
-        isLoadingMonthly = false;
-      });
+      // Nếu bài hát hiện tại đã là bài này và đang phát, thì tạm dừng
+      if (songProvider.currentSong?.id == song.id && playbackProvider.isPlaying) {
+        await audioHandlerProvider.playPause();
+      } else {
+        // Phát bài hát mới
+        await audioHandlerProvider.playSong(song);
+      }
     } catch (e) {
-      setState(() {
-        errorMessageDaily = e.toString();
-        errorMessageWeekly = e.toString();
-        errorMessageMonthly = e.toString();
-        isLoadingDaily = false;
-        isLoadingWeekly = false;
-        isLoadingMonthly = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error playing song: $e')),
+      );
     }
   }
 
@@ -165,7 +97,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
           tabs: const [
             Tab(text: 'Day'),
             Tab(text: 'Week'),
-            Tab(text: 'Month'),
+            Tab(text: 'Trending'),
           ],
         ),
       ),
@@ -175,34 +107,49 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
           controller: _tabController,
           children: [
             // Tab Day
-            _buildTabContent(
-              context,
-              isLoading: isLoadingDaily,
-              errorMessage: errorMessageDaily,
-              songs: dailySongs,
-              title: 'Top Songs Today',
-              screenHeight: screenHeight,
-              screenWidth: screenWidth,
+            Consumer<RankingProvider>(
+              builder: (context, rankingProvider, child) {
+                return _buildTabContent(
+                  context,
+                  isLoading: rankingProvider.isLoadingDaily,
+                  errorMessage: rankingProvider.errorMessageDaily,
+                  songs: rankingProvider.dailySongs,
+                  title: 'Top Songs Today',
+                  screenHeight: screenHeight,
+                  screenWidth: screenWidth,
+                  tabIndex: 0,
+                );
+              },
             ),
             // Tab Week
-            _buildTabContent(
-              context,
-              isLoading: isLoadingWeekly,
-              errorMessage: errorMessageWeekly,
-              songs: weeklySongs,
-              title: 'Top Songs This Week',
-              screenHeight: screenHeight,
-              screenWidth: screenWidth,
+            Consumer<RankingProvider>(
+              builder: (context, rankingProvider, child) {
+                return _buildTabContent(
+                  context,
+                  isLoading: rankingProvider.isLoadingWeekly,
+                  errorMessage: rankingProvider.errorMessageWeekly,
+                  songs: rankingProvider.weeklySongs,
+                  title: 'Top Songs This Week',
+                  screenHeight: screenHeight,
+                  screenWidth: screenWidth,
+                  tabIndex: 1,
+                );
+              },
             ),
-            // Tab Month
-            _buildTabContent(
-              context,
-              isLoading: isLoadingMonthly,
-              errorMessage: errorMessageMonthly,
-              songs: monthlySongs,
-              title: 'Top Songs This Month',
-              screenHeight: screenHeight,
-              screenWidth: screenWidth,
+            // Tab Trending
+            Consumer<RankingProvider>(
+              builder: (context, rankingProvider, child) {
+                return _buildTabContent(
+                  context,
+                  isLoading: rankingProvider.isLoadingMonthly,
+                  errorMessage: rankingProvider.errorMessageMonthly,
+                  songs: rankingProvider.monthlySongs,
+                  title: 'Trending Songs',
+                  screenHeight: screenHeight,
+                  screenWidth: screenWidth,
+                  tabIndex: 2,
+                );
+              },
             ),
           ],
         ),
@@ -214,10 +161,11 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
       BuildContext context, {
         required bool isLoading,
         required String? errorMessage,
-        required List<Map<String, dynamic>> songs,
+        required List<RankingSong> songs,
         required String title,
         required double screenHeight,
         required double screenWidth,
+        required int tabIndex,
       }) {
     if (isLoading) {
       return Center(child: CircularProgressIndicator());
@@ -255,6 +203,8 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
                     fontSizeArtist: screenHeight * 0.014,
                     fontSizePlays: screenHeight * 0.012,
                     screenWidth: screenWidth,
+                    songs: songs,
+                    tabIndex: tabIndex,
                   ),
                 ),
                 // Top 1 (ở giữa, to hơn)
@@ -268,6 +218,8 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
                     fontSizeArtist: screenHeight * 0.018,
                     fontSizePlays: screenHeight * 0.014,
                     screenWidth: screenWidth,
+                    songs: songs,
+                    tabIndex: tabIndex,
                   ),
                 ),
                 // Top 3 (bên phải)
@@ -281,6 +233,8 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
                     fontSizeArtist: screenHeight * 0.014,
                     fontSizePlays: screenHeight * 0.012,
                     screenWidth: screenWidth,
+                    songs: songs,
+                    tabIndex: tabIndex,
                   ),
                 ),
               ],
@@ -301,14 +255,12 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
               itemCount: songs.length - 3,
               itemBuilder: (context, index) {
                 final songData = songs[index + 3];
-                final song = songData['song'] as Song;
-                final artistName = songData['artistName'] as String;
                 return SongTile(
-                  song: song,
-                  artistName: artistName,
+                  song: songData.song,
+                  artistName: songData.artist,
                   index: index + 4,
                   isRanking: true,
-                  playlist: songs.map((data) => data['song'] as Song).toList(),
+                  playlist: songs.map((data) => data.song).toList(),
                   playlistId: 'chart_${_tabController.index}',
                 );
               },
@@ -322,16 +274,18 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
   Widget _buildTopSongCard(
       BuildContext context, {
         required int rank,
-        required Map<String, dynamic> songData,
+        required RankingSong songData,
         required double imageSize,
         required double fontSizeTitle,
         required double fontSizeArtist,
         required double fontSizePlays,
         required double screenWidth,
+        required List<RankingSong> songs,
+        required int tabIndex,
       }) {
-    final Song song = songData['song'] as Song;
-    final String artistName = songData['artistName'] as String;
-    final int plays = songData['plays'] as int;
+    final song = songData.song;
+    final artistName = songData.artist;
+    final plays = songData.score;
 
     return Column(
       children: [
@@ -355,33 +309,44 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
           ),
         ),
         SizedBox(height: imageSize * 0.05),
-        Container(
-          width: imageSize,
-          height: imageSize,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: song.coverImage != null
-              ? ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              song.coverImage!,
-              fit: BoxFit.cover,
-              width: imageSize,
-              height: imageSize,
-              errorBuilder: (context, error, stackTrace) => Icon(
+        GestureDetector(
+          onTap: () {
+            // Phát nhạc khi bấm vào ảnh bìa
+            _playSong(
+              context,
+              song,
+              songs.map((data) => data.song).toList(),
+              'chart_$tabIndex',
+            );
+          },
+          child: Container(
+            width: imageSize,
+            height: imageSize,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: song.coverImage != null
+                ? ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                song.coverImage!,
+                fit: BoxFit.cover,
+                width: imageSize,
+                height: imageSize,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.music_note,
+                  size: imageSize * 0.5,
+                  color: Colors.grey[600],
+                ),
+              ),
+            )
+                : Center(
+              child: Icon(
                 Icons.music_note,
                 size: imageSize * 0.5,
                 color: Colors.grey[600],
               ),
-            ),
-          )
-              : Center(
-            child: Icon(
-              Icons.music_note,
-              size: imageSize * 0.5,
-              color: Colors.grey[600],
             ),
           ),
         ),

@@ -93,10 +93,11 @@ class SongTile extends StatelessWidget {
                 height: avatarSize,
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(8), // Bo góc cho hình vuông
                 ),
                 child: song.coverImage != null
-                    ? ClipOval(
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8), // Bo góc cho ảnh
                   child: Image.network(
                     song.coverImage!,
                     fit: BoxFit.cover,

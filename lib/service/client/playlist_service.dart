@@ -1,4 +1,5 @@
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../config/api_client.dart';
 import '../../models/playlist.dart';
 
@@ -53,22 +54,34 @@ class PlaylistService {
     required String title,
     required String userId,
     String? coverImagePath, // Đường dẫn file ảnh bìa trên thiết bị
-    bool isPublic = true,
+    bool isPublic = true, // Giữ tham số này để tương thích, nhưng không gửi field isPublic
     String? token, // Token nếu backend yêu cầu xác thực
   }) async {
     try {
+      if (token == null) {
+        throw Exception('No access token found');
+      }
+
       final fields = <String, String>{
         'title': title,
         'user': userId,
-        'isPublic': isPublic.toString(),
       };
 
       final files = <String, http.MultipartFile>{};
       if (coverImagePath != null) {
-        files['cover'] = await http.MultipartFile.fromPath('cover', coverImagePath);
+        files['cover'] = await http.MultipartFile.fromPath(
+          'cover', // Sửa từ 'coverImage' thành 'cover' để khớp với backend
+          coverImagePath,
+          filename: 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
       }
 
-      final response = await _apiClient.post('playlist/', fields, files: files.isNotEmpty ? files : null, token: token);
+      final response = await _apiClient.post(
+        'playlist/',
+        fields,
+        files: files.isNotEmpty ? files : null,
+        token: token,
+      );
 
       if (response['success'] == true) {
         return Playlist.fromJson(response['data']);
@@ -95,7 +108,11 @@ class PlaylistService {
 
       final files = <String, http.MultipartFile>{};
       if (coverImagePath != null) {
-        files['cover'] = await http.MultipartFile.fromPath('cover', coverImagePath);
+        files['cover'] = await http.MultipartFile.fromPath(
+          'cover', // Sửa từ 'coverImage' thành 'cover'
+          coverImagePath,
+          filename: 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
       }
 
       final response = await _apiClient.put(
