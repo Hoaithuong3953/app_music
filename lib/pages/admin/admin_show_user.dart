@@ -45,12 +45,10 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
         throw Exception('Không có token xác thực. Vui lòng đăng nhập lại.');
       }
 
-      print('Lấy thông tin người dùng với ID: ${widget.userId}');
       final fetchedUserData = await _userService.getUserById(
         widget.userId,
         token: token,
       );
-      print('Dữ liệu người dùng: $fetchedUserData');
 
       setState(() {
         userData = fetchedUserData;
@@ -70,8 +68,6 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
   Future<void> fetchLikedSongs() async {
     try {
       final songs = await _songService.getAllSongs();
-      print('Danh sách bài hát: $songs');
-
       setState(() {
         likedSongs = songs
             .where((entry) {
@@ -84,10 +80,8 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                   'artistName': entry['artistName'] as String? ?? 'Không rõ nghệ sĩ',
                 }))
             .toList();
-        print('Bài hát yêu thích: $likedSongs');
       });
     } catch (e) {
-      print('Lỗi tải danh sách bài hát yêu thích: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi tải danh sách bài hát yêu thích: $e')),
       );
@@ -167,7 +161,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Chỉnh sửa Người Dùng'),
+          title: const Text('Chỉnh sửa người dùng'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -268,36 +262,68 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: Text(userData != null ? userData!['fullName'] : 'Chi tiết Người Dùng'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: Text(
+          userData != null ? userData!['fullName'] : 'Chi tiết người dùng',
+          style: const TextStyle(
+            color: Color(0xFF2D3436),
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0984E3)),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
             onPressed: userData != null ? showEditUserDialog : null,
           ),
           IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
+            icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
             onPressed: userData != null
                 ? () {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Xác nhận Xóa'),
-                        content: Text('Bạn có chắc muốn xóa ${userData!['fullName']}?'),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        title: const Text(
+                          'Xác nhận xóa',
+                          style: TextStyle(
+                            color: Color(0xFF2D3436),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        content: Text(
+                          'Bạn có chắc chắn muốn xóa người dùng ${userData!['fullName']}?',
+                          style: const TextStyle(
+                            color: Color(0xFF636E72),
+                          ),
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Hủy'),
+                            child: const Text(
+                              'Hủy',
+                              style: TextStyle(color: Color(0xFF636E72)),
+                            ),
                           ),
                           TextButton(
                             onPressed: () {
                               deleteUser();
                               Navigator.pop(context);
                             },
-                            child: const Text('Xóa'),
+                            child: const Text(
+                              'Xóa',
+                              style: TextStyle(color: Color(0xFFE74C3C)),
+                            ),
                           ),
                         ],
                       ),
@@ -308,73 +334,287 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3)),
+              ),
+            )
           : errorMessage != null
-              ? Center(child: Text('Lỗi: $errorMessage'))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Lỗi: $errorMessage',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                )
               : userData == null
-                  ? const Center(child: Text('Không thể tải thông tin người dùng'))
+                  ? const Center(
+                      child: Text(
+                        'Không thể tải thông tin người dùng',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Color(0xFF636E72),
+                        ),
+                      ),
+                    )
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(20.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (userData!['user'].avatarImgURL != null)
-                            Center(
+                          // Avatar Section
+                          Center(
+                            child: Container(
+                              width: 140,
+                              height: 140,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0984E3).withOpacity(0.2),
+                                    spreadRadius: 2,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
                               child: CircleAvatar(
-                                radius: 50,
-                                backgroundImage: NetworkImage(userData!['user'].avatarImgURL!),
-                                onBackgroundImageError: (exception, stackTrace) => const Icon(Icons.person),
+                                radius: 70,
+                                backgroundColor: const Color(0xFF0984E3).withOpacity(0.1),
+                                child: userData!['user'].avatarImgURL != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(70),
+                                        child: Image.network(
+                                          userData!['user'].avatarImgURL!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.person, size: 70, color: Color(0xFF0984E3)),
+                                        ),
+                                      )
+                                    : const Icon(Icons.person, size: 70, color: Color(0xFF0984E3)),
                               ),
                             ),
-                          const SizedBox(height: 16),
-                          Text('Họ và Tên: ${userData!['fullName']}', style: const TextStyle(fontSize: 16)),
-                          Text('Email: ${userData!['user'].email}', style: const TextStyle(fontSize: 16)),
-                          Text('Số điện thoại: ${userData!['user'].mobile}', style: const TextStyle(fontSize: 16)),
-                          Text('Vai trò: ${userData!['user'].role == 'admin' ? 'Quản trị viên' : 'Người dùng'}',
-                              style: const TextStyle(fontSize: 16)),
-                          Text('Trạng thái: ${userData!['user'].isBlocked ? 'Bị chặn' : 'Hoạt động'}',
-                              style: const TextStyle(fontSize: 16)),
-                          Text('Địa chỉ: ${userData!['user'].address ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
-                          Text(
-                            'Tạo lúc: ${userData!['user'].createdAt != null ? userData!['user'].createdAt!.toLocal() : 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // User Info Section
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: Colors.grey.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.person_outline,
+                                        color: Color(0xFF0984E3),
+                                        size: 24,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Thông tin cá nhân',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF2D3436),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  _buildInfoRow('Email', userData!['user'].email),
+                                  _buildInfoRow('Số điện thoại', userData!['user'].mobile),
+                                  _buildInfoRow('Vai trò', userData!['user'].role == 'admin' ? 'Quản trị viên' : 'Người dùng'),
+                                  _buildInfoRow('Địa chỉ', userData!['user'].address ?? 'Chưa cập nhật'),
+                                  _buildInfoRow(
+                                    'Trạng thái',
+                                    userData!['user'].isBlocked ? 'Đã khóa' : 'Hoạt động',
+                                    valueColor: userData!['user'].isBlocked ? const Color(0xFFE74C3C) : const Color(0xFF00B894),
+                                  ),
+                                  _buildInfoRow(
+                                    'Ngày tạo',
+                                    userData!['user'].createdAt.toLocal().toString().split('.')[0],
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 24),
-                          const Text('Bài hát yêu thích:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const Divider(),
-                          likedSongs.isEmpty
-                              ? const Center(child: Text('Không có bài hát yêu thích'))
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: likedSongs.length,
-                                  itemBuilder: (context, index) {
-                                    final entry = likedSongs[index];
-                                    final song = entry['song'] as Song;
-                                    final artistName = entry['artistName'] as String;
-                                    return ListTile(
-                                      leading: song.coverImage != null
-                                          ? Image.network(
-                                              song.coverImage!,
-                                              width: 50,
-                                              height: 50,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note),
-                                            )
-                                          : const Icon(Icons.music_note),
-                                      title: Text(song.title),
-                                      subtitle: Text(artistName),
-                                      onTap: () => Navigator.pushNamed(
-                                        context,
-                                        '/admin/song/:sid',
-                                        arguments: song.id,
+
+                          // Liked Songs Section
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: Colors.grey.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.favorite,
+                                        color: Color(0xFFE74C3C),
+                                        size: 24,
                                       ),
-                                    );
-                                  },
-                                ),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Bài hát yêu thích',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF2D3436),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  if (likedSongs.isEmpty)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          children: [
+                                            Icon(
+                                              Icons.music_note,
+                                              size: 48,
+                                              color: Colors.grey[400],
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Chưa có bài hát yêu thích',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: likedSongs.length,
+                                      itemBuilder: (context, index) {
+                                        final song = likedSongs[index];
+                                        return Card(
+                                          margin: const EdgeInsets.only(bottom: 8),
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            side: BorderSide(
+                                              color: Colors.grey.withOpacity(0.2),
+                                            ),
+                                          ),
+                                          child: ListTile(
+                                            contentPadding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 8,
+                                            ),
+                                            leading: ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: song['song'].coverImage != null
+                                                  ? Image.network(
+                                                      song['song'].coverImage!,
+                                                      width: 50,
+                                                      height: 50,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) =>
+                                                          Container(
+                                                            width: 50,
+                                                            height: 50,
+                                                            color: Colors.grey[200],
+                                                            child: const Icon(Icons.music_note),
+                                                          ),
+                                                    )
+                                                  : Container(
+                                                      width: 50,
+                                                      height: 50,
+                                                      color: Colors.grey[200],
+                                                      child: const Icon(Icons.music_note),
+                                                    ),
+                                            ),
+                                            title: Text(
+                                              song['song'].title,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF2D3436),
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              song['artistName'],
+                                              style: const TextStyle(
+                                                color: Color(0xFF636E72),
+                                              ),
+                                            ),
+                                            onTap: () => Navigator.pushNamed(
+                                              context,
+                                              '/admin/song/:sid',
+                                              arguments: song['song'].id,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF636E72),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: valueColor ?? const Color(0xFF2D3436),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

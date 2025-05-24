@@ -83,17 +83,17 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       await _genreService.createGenre(
         title: genreData['title'],
-        description: genreData['description'],
+        description: '',
         coverImagePath: coverFile?.path,
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Genre created successfully')),
+        const SnackBar(content: Text('Tạo thể loại thành công')),
       );
       fetchGenres();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
@@ -104,17 +104,17 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
       await _genreService.updateGenre(
         genreId: genreId,
         title: genreData['title'],
-        description: genreData['description'],
+        description: '',
         coverImagePath: coverFile?.path,
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Genre updated successfully')),
+        const SnackBar(content: Text('Cập nhật thể loại thành công')),
       );
       fetchGenres();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
@@ -127,36 +127,31 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Genre deleted successfully')),
+        const SnackBar(content: Text('Xóa thể loại thành công')),
       );
       fetchGenres();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
 
   void showCreateGenreDialog() {
     final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
     File? coverFile;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create Genre'),
+        title: const Text('Tạo thể loại mới'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Tên thể loại'),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -164,11 +159,11 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                   if (result != null) {
                     coverFile = File(result.files.single.path!);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Cover image selected')),
+                      const SnackBar(content: Text('Đã chọn ảnh bìa')),
                     );
                   }
                 },
-                child: const Text('Select Cover Image'),
+                child: const Text('Chọn ảnh bìa'),
               ),
             ],
           ),
@@ -176,24 +171,23 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
           TextButton(
             onPressed: () {
-              if (titleController.text.isEmpty || descriptionController.text.isEmpty) {
+              if (titleController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Title and Description are required')),
+                  const SnackBar(content: Text('Vui lòng nhập tên thể loại')),
                 );
                 return;
               }
               final genreData = {
                 'title': titleController.text,
-                'description': descriptionController.text,
               };
               createGenre(genreData, coverFile);
               Navigator.pop(context);
             },
-            child: const Text('Create'),
+            child: const Text('Tạo'),
           ),
         ],
       ),
@@ -202,24 +196,19 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
 
   void showEditGenreDialog(Genre genre) {
     final titleController = TextEditingController(text: genre.title);
-    final descriptionController = TextEditingController(text: genre.description);
     File? coverFile;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Genre'),
+        title: const Text('Chỉnh sửa thể loại'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Tên thể loại'),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -227,11 +216,11 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                   if (result != null) {
                     coverFile = File(result.files.single.path!);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Cover image selected')),
+                      const SnackBar(content: Text('Đã chọn ảnh bìa mới')),
                     );
                   }
                 },
-                child: const Text('Select New Cover Image'),
+                child: const Text('Chọn ảnh bìa mới'),
               ),
             ],
           ),
@@ -239,24 +228,23 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
           TextButton(
             onPressed: () {
-              if (titleController.text.isEmpty || descriptionController.text.isEmpty) {
+              if (titleController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Title and Description are required')),
+                  const SnackBar(content: Text('Vui lòng nhập tên thể loại')),
                 );
                 return;
               }
               final genreData = {
                 'title': titleController.text,
-                'description': descriptionController.text,
               };
               updateGenre(genre.id, genreData, coverFile);
               Navigator.pop(context);
             },
-            child: const Text('Save'),
+            child: const Text('Lưu'),
           ),
         ],
       ),
@@ -269,139 +257,187 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Quản lý Thể loại',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontSize: screenHeight * 0.025,
-                color: Colors.black,
-              ),
+          style: TextStyle(
+            color: Color(0xFF2D3436),
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: Theme.of(context).primaryColor,
-          ),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0984E3)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, color: Color(0xFF0984E3)),
             tooltip: 'Thêm thể loại',
             onPressed: showCreateGenreDialog,
           ),
         ],
       ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tìm kiếm theo tiêu đề thể loại',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm theo tiêu đề thể loại',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF0984E3)),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F6FA),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : errorMessage != null
-                        ? Center(child: Text('Error: $errorMessage'))
-                        : filteredGenres.isEmpty
-                            ? const Center(child: Text('No genres found'))
-                            : ListView.builder(
-                                itemCount: filteredGenres.length,
-                                itemBuilder: (context, index) {
-                                  final entry = filteredGenres[index];
-                                  final genre = entry['genre'] as Genre;
-                                  return Row(
-                                    children: [
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () => Navigator.pushNamed(
-                                            context,
-                                            '/admin/genre/:gid',
-                                            arguments: genre.id,
-                                          ),
-                                          child: GenreCard(genre: genre.title),
+            ),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3))))
+                  : errorMessage != null
+                      ? Center(child: Text('Lỗi: $errorMessage', style: const TextStyle(color: Colors.red)))
+                      : filteredGenres.isEmpty
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.category, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                const Text('Không có thể loại nào', style: TextStyle(fontSize: 18, color: Color(0xFF636E72))),
+                              ],
+                            )
+                          : ListView.separated(
+                              itemCount: filteredGenres.length,
+                              separatorBuilder: (context, idx) => const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                final entry = filteredGenres[index];
+                                final genre = entry['genre'] as Genre;
+                                return Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: (genre.coverImage.isNotEmpty)
+                                              ? Image.network(
+                                                  genre.coverImage,
+                                                  width: 56,
+                                                  height: 56,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    width: 56,
+                                                    height: 56,
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(Icons.category),
+                                                  ),
+                                                )
+                                              : Container(
+                                                  width: 56,
+                                                  height: 56,
+                                                  color: Colors.grey[200],
+                                                  child: const Icon(Icons.category),
+                                                ),
                                         ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.blue),
-                                        onPressed: () => showEditGenreDialog(genre),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text('Confirm Delete'),
-                                              content: Text('Are you sure you want to delete ${genre.title}?'),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(context),
-                                                  child: const Text('Cancel'),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                genre.title,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: Color(0xFF2D3436),
                                                 ),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    deleteGenre(genre.id);
-                                                    Navigator.pop(context);
-                                                  },
-                                                  child: const Text('Delete'),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
+                                          onPressed: () => showEditGenreDialog(genre),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                title: const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                content: Text('Bạn có chắc chắn muốn xóa thể loại "${genre.title}"?'),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context),
+                                                    child: const Text('Hủy'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      deleteGenre(genre.id);
+                                                      Navigator.pop(context);
+                                                    },
+                                                    child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: currentPage > 1
+                        ? () {
+                            setState(() {
+                              currentPage--;
+                            });
+                            fetchGenres();
+                          }
+                        : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('Trang $currentPage / ${(totalCount / limit).ceil()}'),
+                  IconButton(
+                    onPressed: currentPage < (totalCount / limit).ceil()
+                        ? () {
+                            setState(() {
+                              currentPage++;
+                            });
+                            fetchGenres();
+                          }
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: currentPage > 1
-                          ? () {
-                              setState(() {
-                                currentPage--;
-                              });
-                              fetchGenres();
-                            }
-                          : null,
-                      icon: const Icon(Icons.chevron_left),
-                    ),
-                    Text('Page $currentPage / ${(totalCount / limit).ceil()}'),
-                    IconButton(
-                      onPressed: currentPage < (totalCount / limit).ceil()
-                          ? () {
-                              setState(() {
-                                currentPage++;
-                              });
-                              fetchGenres();
-                            }
-                          : null,
-                      icon: const Icon(Icons.chevron_right),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

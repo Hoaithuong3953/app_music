@@ -361,142 +361,281 @@ class _AdminSongPageState extends State<AdminSongPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Quản lý Bài hát',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontSize: screenHeight * 0.025,
-                color: Colors.black,
-              ),
+          style: TextStyle(
+            color: Color(0xFF2D3436),
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: Theme.of(context).primaryColor,
-          ),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0984E3)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, color: Color(0xFF0984E3)),
             tooltip: 'Thêm bài hát',
             onPressed: showCreateSongDialog,
           ),
         ],
       ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tìm kiếm theo tiêu đề hoặc nghệ sĩ',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm theo tên bài hát',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF0984E3)),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F6FA),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : errorMessage != null
-                        ? Center(child: Text('Error: $errorMessage'))
-                        : filteredSongs.isEmpty
-                            ? const Center(child: Text('No songs found'))
-                            : ListView.builder(
-                                itemCount: filteredSongs.length,
-                                itemBuilder: (context, index) {
-                                  final entry = filteredSongs[index];
-                                  final song = entry['song'] as Song;
-                                  final artistName = entry['artistName'] as String;
-                                  return Row(
-                                    children: [
-                                      Expanded(
-                                        child: SongTile(
-                                          song: song,
-                                          artistName: artistName,
-                                          index: index + 1,
-                                          onTap: () => Navigator.pushNamed(
-                                            context,
-                                            '/admin/song/:sid',
-                                            arguments: song.id,
+            ),
+            Expanded(
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3)),
+                      ),
+                    )
+                  : errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Lỗi: $errorMessage',
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        )
+                      : filteredSongs.isEmpty
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.music_note, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Không tìm thấy bài hát nào',
+                                  style: TextStyle(fontSize: 18, color: Color(0xFF636E72)),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              itemCount: filteredSongs.length,
+                              separatorBuilder: (context, idx) => const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                final entry = filteredSongs[index];
+                                final song = entry['song'] as Song;
+                                final artistName = entry['artistName'] as String?;
+                                final genreNames = entry['genreNames'] as List<String>?;
+                                return Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: InkWell(
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      '/admin/song/:sid',
+                                      arguments: song.id,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: (song.coverImage?.isNotEmpty ?? false)
+                                                ? Image.network(
+                                                    song.coverImage!,
+                                                    width: 56,
+                                                    height: 56,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) => Container(
+                                                      width: 56,
+                                                      height: 56,
+                                                      color: Colors.grey[200],
+                                                      child: const Icon(Icons.music_note),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    width: 56,
+                                                    height: 56,
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(Icons.music_note),
+                                                  ),
                                           ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.blue),
-                                        onPressed: () => showEditSongDialog(entry),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text('Confirm Delete'),
-                                              content: Text('Are you sure you want to delete ${song.title}?'),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(context),
-                                                  child: const Text('Cancel'),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  song.title,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: Color(0xFF2D3436),
+                                                  ),
                                                 ),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    deleteSong(song.id);
-                                                    Navigator.pop(context);
-                                                  },
-                                                  child: const Text('Delete'),
+                                                const SizedBox(height: 4),
+                                                if (artistName != null)
+                                                  Text(
+                                                    'Nghệ sĩ: $artistName',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF636E72),
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: [
+                                                    if (genreNames != null && genreNames.isNotEmpty) ...[
+                                                      Icon(
+                                                        Icons.category,
+                                                        size: 16,
+                                                        color: const Color(0xFF0984E3),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        genreNames.join(', '),
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF0984E3),
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 16),
+                                                    ],
+                                                    Icon(
+                                                      Icons.calendar_today,
+                                                      size: 16,
+                                                      color: const Color(0xFF636E72),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Tạo ngày ${song.createdAt.day}/${song.createdAt.month}/${song.createdAt.year}',
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF636E72),
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
-                                          );
-                                        },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
+                                            onPressed: () => showEditSongDialog(song),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                  title: const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                  content: Text('Bạn có chắc chắn muốn xóa bài hát "${song.title}"?'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(context),
+                                                      child: const Text('Hủy'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        deleteSong(song.id);
+                                                        Navigator.pop(context);
+                                                      },
+                                                      child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  );
-                                },
-                              ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: currentPage > 1
-                          ? () {
-                              setState(() {
-                                currentPage--;
-                              });
-                              fetchSongs();
-                            }
-                          : null,
-                      icon: const Icon(Icons.chevron_left),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: currentPage > 1
+                        ? () {
+                            setState(() {
+                              currentPage--;
+                            });
+                            fetchSongs();
+                          }
+                        : null,
+                    icon: const Icon(Icons.chevron_left),
+                    color: currentPage > 1 ? const Color(0xFF0984E3) : Colors.grey,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    Text('Page $currentPage / ${(totalCount / limit).ceil()}'),
-                    IconButton(
-                      onPressed: currentPage < (totalCount / limit).ceil()
-                          ? () {
-                              setState(() {
-                                currentPage++;
-                              });
-                              fetchSongs();
-                            }
-                          : null,
-                      icon: const Icon(Icons.chevron_right),
+                    child: Text(
+                      'Trang $currentPage / ${(totalCount / limit).ceil()}',
+                      style: const TextStyle(
+                        color: Color(0xFF2D3436),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    onPressed: currentPage < (totalCount / limit).ceil()
+                        ? () {
+                            setState(() {
+                              currentPage++;
+                            });
+                            fetchSongs();
+                          }
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                    color: currentPage < (totalCount / limit).ceil() ? const Color(0xFF0984E3) : Colors.grey,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

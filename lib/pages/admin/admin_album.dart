@@ -89,12 +89,12 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Album created successfully')),
+        const SnackBar(content: Text('Tạo album thành công')),
       );
       fetchAlbums();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
@@ -111,12 +111,12 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Album updated successfully')),
+        const SnackBar(content: Text('Cập nhật album thành công')),
       );
       fetchAlbums();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
@@ -129,12 +129,12 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Album deleted successfully')),
+        const SnackBar(content: Text('Xóa album thành công')),
       );
       fetchAlbums();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
@@ -148,34 +148,91 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create Album'),
+        title: const Text('Tạo album mới'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: InputDecoration(
+                  labelText: 'Tên album',
+                  hintText: 'Nhập tên album',
+                  prefixIcon: const Icon(Icons.album, color: Color(0xFF0984E3)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFDFE6E9)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0984E3)),
+                  ),
+                ),
               ),
+              const SizedBox(height: 16),
               TextField(
                 controller: artistController,
-                decoration: const InputDecoration(labelText: 'Artist ID'),
+                decoration: InputDecoration(
+                  labelText: 'ID nghệ sĩ',
+                  hintText: 'Nhập ID nghệ sĩ',
+                  prefixIcon: const Icon(Icons.person, color: Color(0xFF0984E3)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFDFE6E9)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0984E3)),
+                  ),
+                ),
               ),
+              const SizedBox(height: 16),
               TextField(
                 controller: genreController,
-                decoration: const InputDecoration(labelText: 'Genre ID'),
+                decoration: InputDecoration(
+                  labelText: 'ID thể loại',
+                  hintText: 'Nhập ID thể loại',
+                  prefixIcon: const Icon(Icons.category, color: Color(0xFF0984E3)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFDFE6E9)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0984E3)),
+                  ),
+                ),
               ),
-              ElevatedButton(
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
                   if (result != null) {
                     coverFile = File(result.files.single.path!);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Cover image selected')),
+                      const SnackBar(content: Text('Đã chọn ảnh bìa')),
                     );
                   }
                 },
-                child: const Text('Select Cover Image'),
+                icon: const Icon(Icons.image),
+                label: const Text('Chọn ảnh bìa'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 45),
+                  backgroundColor: const Color(0xFF0984E3),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -183,13 +240,13 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               if (titleController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Title is required')),
+                  const SnackBar(content: Text('Vui lòng nhập tên album')),
                 );
                 return;
               }
@@ -201,7 +258,14 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
               createAlbum(albumData, coverFile);
               Navigator.pop(context);
             },
-            child: const Text('Create'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0984E3),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Tạo'),
           ),
         ],
       ),
@@ -217,34 +281,91 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Album'),
+        title: const Text('Chỉnh sửa album'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: InputDecoration(
+                  labelText: 'Tên album',
+                  hintText: 'Nhập tên album',
+                  prefixIcon: const Icon(Icons.album, color: Color(0xFF0984E3)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFDFE6E9)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0984E3)),
+                  ),
+                ),
               ),
+              const SizedBox(height: 16),
               TextField(
                 controller: artistController,
-                decoration: const InputDecoration(labelText: 'Artist ID'),
+                decoration: InputDecoration(
+                  labelText: 'ID nghệ sĩ',
+                  hintText: 'Nhập ID nghệ sĩ',
+                  prefixIcon: const Icon(Icons.person, color: Color(0xFF0984E3)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFDFE6E9)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0984E3)),
+                  ),
+                ),
               ),
+              const SizedBox(height: 16),
               TextField(
                 controller: genreController,
-                decoration: const InputDecoration(labelText: 'Genre ID'),
+                decoration: InputDecoration(
+                  labelText: 'ID thể loại',
+                  hintText: 'Nhập ID thể loại',
+                  prefixIcon: const Icon(Icons.category, color: Color(0xFF0984E3)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFDFE6E9)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0984E3)),
+                  ),
+                ),
               ),
-              ElevatedButton(
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
                   if (result != null) {
                     coverFile = File(result.files.single.path!);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Cover image selected')),
+                      const SnackBar(content: Text('Đã chọn ảnh bìa mới')),
                     );
                   }
                 },
-                child: const Text('Select New Cover Image'),
+                icon: const Icon(Icons.image),
+                label: const Text('Chọn ảnh bìa mới'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 45),
+                  backgroundColor: const Color(0xFF0984E3),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -252,13 +373,13 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               if (titleController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Title is required')),
+                  const SnackBar(content: Text('Vui lòng nhập tên album')),
                 );
                 return;
               }
@@ -270,7 +391,14 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
               updateAlbum(album.id, albumData, coverFile);
               Navigator.pop(context);
             },
-            child: const Text('Save'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0984E3),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Lưu'),
           ),
         ],
       ),
@@ -283,143 +411,281 @@ class _AdminAlbumPageState extends State<AdminAlbumPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Quản lý Album',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontSize: screenHeight * 0.025,
-                color: Colors.black,
-              ),
+          style: TextStyle(
+            color: Color(0xFF2D3436),
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: Theme.of(context).primaryColor,
-          ),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0984E3)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, color: Color(0xFF0984E3)),
             tooltip: 'Thêm album',
             onPressed: showCreateAlbumDialog,
           ),
         ],
       ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tìm kiếm theo tiêu đề album',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm theo tên album',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF0984E3)),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F6FA),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : errorMessage != null
-                        ? Center(child: Text('Error: $errorMessage'))
-                        : filteredAlbums.isEmpty
-                            ? const Center(child: Text('No albums found'))
-                            : ListView.builder(
-                                itemCount: filteredAlbums.length,
-                                itemBuilder: (context, index) {
-                                  final entry = filteredAlbums[index];
-                                  final album = entry['album'] as Album;
-                                  final artistName = entry['artistName'] as String;
-                                  return Row(
-                                    children: [
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () => Navigator.pushNamed(
-                                            context,
-                                            '/admin/album/:aid',
-                                            arguments: album.id,
+            ),
+            Expanded(
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3)),
+                      ),
+                    )
+                  : errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Lỗi: $errorMessage',
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        )
+                      : filteredAlbums.isEmpty
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.album, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Không tìm thấy album nào',
+                                  style: TextStyle(fontSize: 18, color: Color(0xFF636E72)),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              itemCount: filteredAlbums.length,
+                              separatorBuilder: (context, idx) => const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                final entry = filteredAlbums[index];
+                                final album = entry['album'] as Album;
+                                final artistName = entry['artistName'] as String?;
+                                final genreName = entry['genreName'] as String?;
+                                return Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: InkWell(
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      '/admin/album/:aid',
+                                      arguments: album.id,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: (album.coverImageURL?.isNotEmpty ?? false)
+                                                ? Image.network(
+                                                    album.coverImageURL!,
+                                                    width: 56,
+                                                    height: 56,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) => Container(
+                                                      width: 56,
+                                                      height: 56,
+                                                      color: Colors.grey[200],
+                                                      child: const Icon(Icons.album),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    width: 56,
+                                                    height: 56,
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(Icons.album),
+                                                  ),
                                           ),
-                                          child: AlbumCard(
-                                            album: album,
-                                            artistName: artistName,
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.blue),
-                                        onPressed: () => showEditAlbumDialog(album),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text('Confirm Delete'),
-                                              content: Text('Are you sure you want to delete ${album.title}?'),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(context),
-                                                  child: const Text('Cancel'),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  album.title,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: Color(0xFF2D3436),
+                                                  ),
                                                 ),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    deleteAlbum(album.id);
-                                                    Navigator.pop(context);
-                                                  },
-                                                  child: const Text('Delete'),
+                                                const SizedBox(height: 4),
+                                                if (artistName != null)
+                                                  Text(
+                                                    'Nghệ sĩ: $artistName',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF636E72),
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: [
+                                                    if (genreName != null) ...[
+                                                      Icon(
+                                                        Icons.category,
+                                                        size: 16,
+                                                        color: const Color(0xFF0984E3),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        genreName,
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF0984E3),
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 16),
+                                                    ],
+                                                    Icon(
+                                                      Icons.calendar_today,
+                                                      size: 16,
+                                                      color: const Color(0xFF636E72),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Tạo ngày ${album.createdAt.day}/${album.createdAt.month}/${album.createdAt.year}',
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF636E72),
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
-                                          );
-                                        },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
+                                            onPressed: () => showEditAlbumDialog(album),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                  title: const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                  content: Text('Bạn có chắc chắn muốn xóa album "${album.title}"?'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(context),
+                                                      child: const Text('Hủy'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        deleteAlbum(album.id);
+                                                        Navigator.pop(context);
+                                                      },
+                                                      child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  );
-                                },
-                              ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: currentPage > 1
-                          ? () {
-                              setState(() {
-                                currentPage--;
-                              });
-                              fetchAlbums();
-                            }
-                          : null,
-                      icon: const Icon(Icons.chevron_left),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: currentPage > 1
+                        ? () {
+                            setState(() {
+                              currentPage--;
+                            });
+                            fetchAlbums();
+                          }
+                        : null,
+                    icon: const Icon(Icons.chevron_left),
+                    color: currentPage > 1 ? const Color(0xFF0984E3) : Colors.grey,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    Text('Page $currentPage / ${(totalCount / limit).ceil()}'),
-                    IconButton(
-                      onPressed: currentPage < (totalCount / limit).ceil()
-                          ? () {
-                              setState(() {
-                                currentPage++;
-                              });
-                              fetchAlbums();
-                            }
-                          : null,
-                      icon: const Icon(Icons.chevron_right),
+                    child: Text(
+                      'Trang $currentPage / ${(totalCount / limit).ceil()}',
+                      style: const TextStyle(
+                        color: Color(0xFF2D3436),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    onPressed: currentPage < (totalCount / limit).ceil()
+                        ? () {
+                            setState(() {
+                              currentPage++;
+                            });
+                            fetchAlbums();
+                          }
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                    color: currentPage < (totalCount / limit).ceil() ? const Color(0xFF0984E3) : Colors.grey,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
