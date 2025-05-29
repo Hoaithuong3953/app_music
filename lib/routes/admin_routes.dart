@@ -21,9 +21,9 @@ final adminRoutes = {
   '/admin/genres': (context) => const AdminGenrePage(),
   '/admin/albums': (context) => const AdminAlbumPage(),
   '/admin/artist': (context) => const AdminArtistPage(),
-  '/admin/artist/:id': (context) {
+  '/admin/artist/:aid': (context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map?;
-    final id = args?['id'] as String? ?? '';
+    final id = args?['aid'] as String? ?? '';
     return AdminShowArtistPage(artistId: id);
   },
   '/admin/user/:uid': (context) {

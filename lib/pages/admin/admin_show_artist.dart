@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../config/api_client.dart';
 import '../../service/admin/admin_artist_service.dart';
-import '../../service/client/song_service.dart';
+import '../../service/admin/admin_song_service.dart';
 import '../../service/admin/admin_genre_service.dart';
 import '../../service/admin/admin_album_service.dart';
 import '../../models/artist.dart';
@@ -28,11 +28,11 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
   List<Map<String, dynamic>> albums = [];
   List<Map<String, dynamic>> genres = [];
   bool isLoading = true;
+  String? errorMessage;
   final AdminArtistService _artistService = AdminArtistService();
-  final SongService _songService = SongService();
+  final AdminSongService _songService = AdminSongService();
   final AdminAlbumService _albumService = AdminAlbumService();
   final AdminGenreService _genreService = AdminGenreService();
-  final ApiClient _apiClient = ApiClient();
 
   @override
   void initState() {
@@ -41,102 +41,157 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
   }
 
   Future<void> fetchArtistDetails() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final fetchedArtistData = await _artistService.getArtistById(widget.artistId, token: userProvider.user?.token);
+      final token = userProvider.user?.token;
+      if (token == null) {
+        throw Exception('Không có token xác thực.');
+      }
+
+      print('Fetching artist with ID: ${widget.artistId}');
+      final fetchedArtistData = await _artistService.getArtistById(widget.artistId, token: token);
+      print('Fetched Artist Data: $fetchedArtistData');
+      print('Artist Songs: ${fetchedArtistData['artist'].songs}');
+      print('Artist Albums: ${fetchedArtistData['artist'].albums}');
+      print('Artist Genres: ${fetchedArtistData['artist'].genres}');
+
       List<Map<String, dynamic>> fetchedSongs = [];
       List<Map<String, dynamic>> fetchedAlbums = [];
       List<Map<String, dynamic>> fetchedGenres = [];
 
       // Lấy danh sách bài hát
-      if (fetchedArtistData['artist'].songs.isNotEmpty) {
-        final validSongIds = fetchedArtistData['artist'].songs.where((id) => id.isNotEmpty).toList();
-        if (validSongIds.isNotEmpty) {
-          final response = await _apiClient.get(
-            'song/',
-            queryParameters: {'_id[\$in]': validSongIds.join(',')}, // Sử dụng $in
-            token: userProvider.user?.token,
+      if (fetchedArtistData['artist'].songs != null && fetchedArtistData['artist'].songs.isNotEmpty) {
+        final List<String> songIds = (fetchedArtistData['artist'].songs as List<dynamic>)
+            .where((song) => song != null)
+            .map((song) {
+              final songId = song is Map ? song['_id']?.toString() ?? song.toString() : song.toString();
+              print('Song ID from artist: $songId (Type: ${songId.runtimeType})');
+              return songId;
+            })
+            .toList();
+        print('Song IDs: $songIds');
+
+        if (songIds.isNotEmpty) {
+          final songsData = await _songService.getAllSongs(
+            token: token,
+            fields: 'title,artist,coverImage',
           );
-          if (response['success'] == true) {
-            final songsData = response['data'] as List<dynamic>;
-            fetchedSongs = songsData.map((json) {
-              final song = Song.fromJson(json);
-              return {
-                'song': song,
-                'artistName': json['artist']?['title']?.toString() ?? 'Không rõ nghệ sĩ',
-              };
-            }).toList();
-          } else {
-            print('Lỗi lấy bài hát: ${response['message']}');
-          }
+          print('Songs Data: $songsData');
+          print('Songs Data Type: ${songsData.runtimeType}');
+
+          fetchedSongs = (songsData as List<dynamic>)
+              .where((json) {
+                final song = json['song'] as Song?;
+                final songId = song?.id?.toString();
+                print('Song ID from songsData: $songId (Type: ${songId.runtimeType})');
+                final matches = songId != null && songIds.contains(songId);
+                print('Matches for Song ID $songId: $matches');
+                return matches;
+              })
+              .cast<Map<String, dynamic>>()
+              .toList();
+          print('Fetched Songs: $fetchedSongs');
         }
       }
 
       // Lấy danh sách album
-      if (fetchedArtistData['artist'].albums.isNotEmpty) {
-        final validAlbumIds = fetchedArtistData['artist'].albums.where((id) => id.isNotEmpty).toList();
-        if (validAlbumIds.isNotEmpty) {
-          final response = await _apiClient.get(
-            'album/',
-            queryParameters: {'_id[\$in]': validAlbumIds.join(',')}, // Sử dụng $in
-            token: userProvider.user?.token,
+      if (fetchedArtistData['artist'].albums != null && fetchedArtistData['artist'].albums.isNotEmpty) {
+        final List<String> albumIds = (fetchedArtistData['artist'].albums as List<dynamic>)
+            .where((album) => album != null)
+            .map((album) {
+              final albumId = album is Map ? album['_id']?.toString() ?? album.toString() : album.toString();
+              print('Album ID from artist: $albumId (Type: ${albumId.runtimeType})');
+              return albumId;
+            })
+            .toList();
+        print('Album IDs: $albumIds');
+
+        if (albumIds.isNotEmpty) {
+          final albumsData = await _albumService.getAllAlbums(
+            token: token,
+            fields: 'title,artist',
           );
-          if (response['success'] == true) {
-            final albumsData = response['data'] as List<dynamic>;
-            fetchedAlbums = albumsData.map((json) {
-              final album = Album.fromJson(json);
-              return {
-                'album': album,
-                'artistName': json['artist']?['title']?.toString() ?? 'Không rõ nghệ sĩ',
-              };
-            }).toList();
-          } else {
-            print('Lỗi lấy album: ${response['message']}');
-          }
+          print('Albums Data: $albumsData');
+          print('Albums Data Type: ${albumsData.runtimeType}');
+
+          fetchedAlbums = (albumsData as List<dynamic>)
+              .where((json) {
+                final album = json['album'] as Album?;
+                final albumId = album?.id?.toString();
+                print('Album ID from albumsData: $albumId (Type: ${albumId.runtimeType})');
+                final matches = albumId != null && albumIds.contains(albumId);
+                print('Matches for Album ID $albumId: $matches');
+                return matches;
+              })
+              .cast<Map<String, dynamic>>()
+              .toList();
+          print('Fetched Albums: $fetchedAlbums');
         }
       }
 
       // Lấy danh sách thể loại
-      if (fetchedArtistData['artist'].genres.isNotEmpty) {
-        final validGenreIds = fetchedArtistData['artist'].genres.where((id) => id.isNotEmpty).toList();
-        if (validGenreIds.isNotEmpty) {
-          final response = await _apiClient.get(
-            'genre/',
-            queryParameters: {'_id[\$in]': validGenreIds.join(',')}, // Sử dụng $in
-            token: userProvider.user?.token,
+      if (fetchedArtistData['artist'].genres != null && fetchedArtistData['artist'].genres.isNotEmpty) {
+        final List<String> genreIds = (fetchedArtistData['artist'].genres as List<dynamic>)
+            .where((genre) => genre != null)
+            .map((genre) {
+              final genreId = genre is Map ? genre['_id']?.toString() ?? genre.toString() : genre.toString();
+              print('Genre ID from artist: $genreId (Type: ${genreId.runtimeType})');
+              return genreId;
+            })
+            .toList();
+        print('Genre IDs: $genreIds');
+
+        if (genreIds.isNotEmpty) {
+          final genresData = await _genreService.getAllGenres(
+            token: token,
+            fields: 'title',
           );
-          if (response['success'] == true) {
-            final genresData = response['data'] as List<dynamic>;
-            fetchedGenres = genresData.map((json) {
-              final genre = Genre.fromJson(json);
-              return {
-                'genre': genre,
-              };
-            }).toList();
-          } else {
-            print('Lỗi lấy thể loại: ${response['message']}');
-          }
+          print('Genres Data: $genresData');
+          print('Genres Data Type: ${genresData.runtimeType}');
+
+          fetchedGenres = (genresData as List<dynamic>)
+              .where((json) {
+                final genre = json['genre'] as Genre?;
+                final genreId = genre?.id?.toString();
+                print('Genre ID from genresData: $genreId (Type: ${genreId.runtimeType})');
+                final matches = genreId != null && genreIds.contains(genreId);
+                print('Matches for Genre ID $genreId: $matches');
+                return matches;
+              })
+              .cast<Map<String, dynamic>>()
+              .toList();
+          print('Fetched Genres: $fetchedGenres');
         }
       }
 
-      setState(() {
-        artistData = fetchedArtistData;
-        songs = fetchedSongs;
-        albums = fetchedAlbums;
-        genres = fetchedGenres;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          artistData = fetchedArtistData;
+          songs = fetchedSongs;
+          albums = fetchedAlbums;
+          genres = fetchedGenres;
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
-      setState(() {
-        artistData = null;
-        songs = [];
-        albums = [];
-        genres = [];
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          errorMessage = e.toString();
+          artistData = null;
+          songs = [];
+          albums = [];
+          genres = [];
+          isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
@@ -147,14 +202,18 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
         artistId: widget.artistId,
         token: userProvider.user?.token,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nghệ sĩ đã được xóa thành công')),
-      );
-      Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nghệ sĩ đã được xóa thành công')),
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
@@ -184,7 +243,7 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
                     );
                   }
                 },
-                child: const Text('Chọn Ảnh Đại diện Mới'),
+                child: const Text('Chọn Ảnh Đại Diện Mới'),
               ),
             ],
           ),
@@ -210,15 +269,19 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
                   avatarPath: avatarFile?.path,
                   token: userProvider.user?.token,
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Nghệ sĩ đã được cập nhật thành công')),
-                );
-                Navigator.pop(context);
-                fetchArtistDetails();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Nghệ sĩ đã được cập nhật thành công')),
+                  );
+                  Navigator.pop(context);
+                  fetchArtistDetails();
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Lỗi: $e')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Lỗi: $e')),
+                  );
+                }
               }
             },
             child: const Text('Cập nhật'),
@@ -229,7 +292,8 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
   }
 
   Future<void> addSongsToArtist() async {
-    final allSongs = await _songService.getAllSongs();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final allSongs = await _songService.getAllSongs(token: userProvider.user?.token ?? '');
     final selectedSongIds = <String>[];
 
     showDialog(
@@ -280,15 +344,19 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
                   songIds: selectedSongIds,
                   token: userProvider.user?.token,
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Thêm bài hát thành công')),
-                );
-                Navigator.pop(context);
-                fetchArtistDetails();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Thêm bài hát thành công')),
+                  );
+                  Navigator.pop(context);
+                  fetchArtistDetails();
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Lỗi: $e')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Lỗi: $e')),
+                  );
+                }
               }
             },
             child: const Text('Thêm'),
@@ -299,7 +367,7 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
   }
 
   Future<void> addAlbumsToArtist() async {
-    final allAlbums = await _albumService.getAllAlbums();
+    final allAlbums = await _albumService.getAllAlbums(token: Provider.of<UserProvider>(context, listen: false).user?.token);
     final selectedAlbumIds = <String>[];
 
     showDialog(
@@ -350,15 +418,19 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
                   albumIds: selectedAlbumIds,
                   token: userProvider.user?.token,
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Thêm album thành công')),
-                );
-                Navigator.pop(context);
-                fetchArtistDetails();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Thêm album thành công')),
+                  );
+                  Navigator.pop(context);
+                  fetchArtistDetails();
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Lỗi: $e')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Lỗi: $e')),
+                  );
+                }
               }
             },
             child: const Text('Thêm'),
@@ -369,7 +441,7 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
   }
 
   Future<void> addGenreToArtist() async {
-    final allGenres = await _genreService.getAllGenres();
+    final allGenres = await _genreService.getAllGenres(token: Provider.of<UserProvider>(context, listen: false).user?.token);
     String? selectedGenreId;
 
     showDialog(
@@ -416,15 +488,19 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
                   genreId: selectedGenreId!,
                   token: userProvider.user?.token,
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Thêm thể loại thành công')),
-                );
-                Navigator.pop(context);
-                fetchArtistDetails();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Thêm thể loại thành công')),
+                  );
+                  Navigator.pop(context);
+                  fetchArtistDetails();
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Lỗi: $e')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Lỗi: $e')),
+                  );
+                }
               }
             },
             child: const Text('Thêm'),
@@ -442,14 +518,18 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
         songIds: [songId],
         token: userProvider.user?.token,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xóa bài hát thành công')),
-      );
-      fetchArtistDetails();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xóa bài hát thành công')),
+        );
+        fetchArtistDetails();
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
@@ -461,14 +541,18 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
         albumIds: [albumId],
         token: userProvider.user?.token,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xóa album thành công')),
-      );
-      fetchArtistDetails();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xóa album thành công')),
+        );
+        fetchArtistDetails();
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
@@ -480,14 +564,18 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
         genreId: genreId,
         token: userProvider.user?.token,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xóa thể loại thành công')),
-      );
-      fetchArtistDetails();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xóa thể loại thành công')),
+        );
+        fetchArtistDetails();
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
@@ -498,43 +586,55 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(artistData != null ? artistData!['artist'].title : 'Chi tiết Nghệ sĩ'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0984E3)),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
             onPressed: artistData != null ? updateArtist : null,
           ),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, color: Color(0xFF0984E3)),
             onPressed: addSongsToArtist,
+            tooltip: 'Thêm bài hát',
           ),
           IconButton(
-            icon: const Icon(Icons.album),
+            icon: const Icon(Icons.album, color: Color(0xFF0984E3)),
             onPressed: addAlbumsToArtist,
+            tooltip: 'Thêm album',
           ),
           IconButton(
-            icon: const Icon(Icons.category),
+            icon: const Icon(Icons.category, color: Color(0xFF0984E3)),
             onPressed: addGenreToArtist,
+            tooltip: 'Thêm thể loại',
           ),
           IconButton(
-            icon: const Icon(Icons.delete),
+            icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
             onPressed: artistData != null
                 ? () {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         title: const Text('Xác nhận Xóa'),
                         content: Text('Bạn có chắc muốn xóa ${artistData!['artist'].title}?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Hủy'),
+                            child: const Text('Hủy', style: TextStyle(color: Color(0xFF636E72))),
                           ),
                           TextButton(
                             onPressed: () {
                               deleteArtist();
                               Navigator.pop(context);
                             },
-                            child: const Text('Xóa'),
+                            child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
                           ),
                         ],
                       ),
@@ -545,193 +645,449 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : artistData == null
-              ? const Center(child: Text('Không thể tải thông tin nghệ sĩ'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
+          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3))))
+          : errorMessage != null
+              ? Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (artistData!['artist'].avatar != null)
-                        Center(
-                          child: Image.network(
-                            artistData!['artist'].avatar,
-                            width: 150,
-                            height: 150,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 150),
-                          ),
-                        ),
+                      Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
                       const SizedBox(height: 16),
-                      Text('Tên: ${artistData!['artist'].title}', style: const TextStyle(fontSize: 16)),
-                      Text('Tạo lúc: ${artistData!['artist'].createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
-                      const SizedBox(height: 24),
-                      const Text('Bài hát:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Divider(),
-                      songs.isEmpty
-                          ? const Center(child: Text('Không có bài hát nào'))
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: songs.length,
-                              itemBuilder: (context, index) {
-                                final entry = songs[index];
-                                final song = entry['song'] as Song;
-                                final artistName = entry['artistName'] as String;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: ListTile(
-                                        title: Text(song.title),
-                                        subtitle: Text(artistName),
-                                        onTap: () => Navigator.pushNamed(
-                                          context,
-                                          '/admin/song/:sid',
-                                          arguments: song.id,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Xác nhận Xóa'),
-                                            content: Text('Bạn có chắc muốn xóa ${song.title} khỏi nghệ sĩ này?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Hủy'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  removeSongFromArtist(song.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Xóa'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                      const SizedBox(height: 24),
-                      const Text('Album:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Divider(),
-                      albums.isEmpty
-                          ? const Center(child: Text('Không có album nào'))
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: albums.length,
-                              itemBuilder: (context, index) {
-                                final entry = albums[index];
-                                final album = entry['album'] as Album;
-                                final artistName = entry['artistName'] as String;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: ListTile(
-                                        title: Text(album.title),
-                                        subtitle: Text(artistName),
-                                        onTap: () => Navigator.pushNamed(
-                                          context,
-                                          '/admin/album/:aid',
-                                          arguments: album.id,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Xác nhận Xóa'),
-                                            content: Text('Bạn có chắc muốn xóa ${album.title} khỏi nghệ sĩ này?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Hủy'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  removeAlbumFromArtist(album.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Xóa'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                      const SizedBox(height: 24),
-                      const Text('Thể loại:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Divider(),
-                      genres.isEmpty
-                          ? const Center(child: Text('Không có thể loại nào'))
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: genres.length,
-                              itemBuilder: (context, index) {
-                                final entry = genres[index];
-                                final genre = entry['genre'] as Genre;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: ListTile(
-                                        title: Text(genre.title),
-                                        onTap: () => Navigator.pushNamed(
-                                          context,
-                                          '/admin/genre/:gid',
-                                          arguments: genre.id,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Xác nhận Xóa'),
-                                            content: Text('Bạn có chắc muốn xóa ${genre.title} khỏi nghệ sĩ này?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Hủy'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  removeGenreFromArtist(genre.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Xóa'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                      Text('Lỗi: $errorMessage', style: const TextStyle(color: Colors.red)),
                     ],
                   ),
-                ),
+                )
+              : artistData == null
+                  ? const Center(
+                      child: Text(
+                        'Không thể tải thông tin nghệ sĩ',
+                        style: TextStyle(fontSize: 18, color: Color(0xFF636E72)),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Avatar Section
+                          Center(
+                            child: Container(
+                              width: 140,
+                              height: 140,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0984E3).withOpacity(0.2),
+                                    spreadRadius: 2,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: 70,
+                                backgroundColor: const Color(0xFF0984E3).withOpacity(0.1),
+                                child: artistData!['artist'].avatar != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(70),
+                                        child: Image.network(
+                                          artistData!['artist'].avatar!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.person, size: 70, color: Color(0xFF0984E3)),
+                                        ),
+                                      )
+                                    : Icon(Icons.person, size: 70, color: const Color(0xFF0984E3)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Artist Info Section
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.person_outline, color: Color(0xFF0984E3), size: 24),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Thông tin nghệ sĩ',
+                                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2D3436)),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  _buildInfoRow('Tên', artistData!['artist'].title),
+                                  _buildInfoRow(
+                                    'Ngày tạo',
+                                    artistData!['artist'].createdAt?.toLocal().toString().split('.')[0] ?? 'N/A',
+                                  ),
+                                  _buildInfoRow(
+                                    'Cập nhật',
+                                    artistData!['artist'].updatedAt?.toLocal().toString().split('.')[0] ?? 'N/A',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Songs Section
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.music_note, color: Color(0xFF0984E3), size: 24),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Bài hát',
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2D3436)),
+                                          ),
+                                        ],
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.refresh, color: Color(0xFF0984E3)),
+                                        onPressed: fetchArtistDetails,
+                                        tooltip: 'Làm mới danh sách',
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  if (songs.isEmpty)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          children: [
+                                            Icon(Icons.music_note, size: 48, color: Colors.grey[400]),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Chưa có bài hát nào',
+                                              style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: songs.length,
+                                      itemBuilder: (context, index) {
+                                        final entry = songs[index];
+                                        final song = entry['song'] as Song;
+                                        final artistName = entry['artistName'] as String;
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              child: ListTile(
+                                                leading: song.coverImage != null
+                                                    ? ClipRRect(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        child: Image.network(
+                                                          song.coverImage!,
+                                                          width: 50,
+                                                          height: 50,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (context, error, stackTrace) => Container(
+                                                            width: 50,
+                                                            height: 50,
+                                                            color: Colors.grey[200],
+                                                            child: const Icon(Icons.music_note),
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : Container(
+                                                        width: 50,
+                                                        height: 50,
+                                                        color: Colors.grey[200],
+                                                        child: const Icon(Icons.music_note),
+                                                      ),
+                                                title: Text(song.title),
+                                                subtitle: Text(artistName),
+                                                onTap: () => Navigator.pushNamed(
+                                                  context,
+                                                  '/admin/song/:sid',
+                                                  arguments: song.id,
+                                                ).then((_) => fetchArtistDetails()),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) => AlertDialog(
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                    title: const Text('Xác nhận Xóa'),
+                                                    content: Text('Bạn có chắc muốn xóa ${song.title} khỏi nghệ sĩ này?'),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.pop(context),
+                                                        child: const Text('Hủy', style: TextStyle(color: Color(0xFF636E72))),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () {
+                                                          removeSongFromArtist(song.id);
+                                                          Navigator.pop(context);
+                                                        },
+                                                        child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Albums Section
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.album, color: Color(0xFF0984E3), size: 24),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Album',
+                                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2D3436)),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  if (albums.isEmpty)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          children: [
+                                            Icon(Icons.album, size: 48, color: Colors.grey[400]),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Chưa có album nào',
+                                              style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: albums.length,
+                                      itemBuilder: (context, index) {
+                                        final entry = albums[index];
+                                        final album = entry['album'] as Album;
+                                        final artistName = entry['artistName'] as String;
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              child: ListTile(
+                                                title: Text(album.title),
+                                                subtitle: Text(artistName),
+                                                onTap: () => Navigator.pushNamed(
+                                                  context,
+                                                  '/admin/album/:aid',
+                                                  arguments: album.id,
+                                                ).then((_) => fetchArtistDetails()),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) => AlertDialog(
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                    title: const Text('Xác nhận Xóa'),
+                                                    content: Text('Bạn có chắc muốn xóa ${album.title} khỏi nghệ sĩ này?'),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.pop(context),
+                                                        child: const Text('Hủy', style: TextStyle(color: Color(0xFF636E72))),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () {
+                                                          removeAlbumFromArtist(album.id);
+                                                          Navigator.pop(context);
+                                                        },
+                                                        child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Genres Section
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.category, color: Color(0xFF0984E3), size: 24),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Thể loại',
+                                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2D3436)),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  if (genres.isEmpty)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          children: [
+                                            Icon(Icons.category, size: 48, color: Colors.grey[400]),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Chưa có thể loại nào',
+                                              style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: genres.length,
+                                      itemBuilder: (context, index) {
+                                        final entry = genres[index];
+                                        final genre = entry['genre'] as Genre;
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              child: ListTile(
+                                                title: Text(genre.title),
+                                                onTap: () => Navigator.pushNamed(
+                                                  context,
+                                                  '/admin/genre/:gid',
+                                                  arguments: genre.id,
+                                                ).then((_) => fetchArtistDetails()),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) => AlertDialog(
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                    title: const Text('Xác nhận Xóa'),
+                                                    content: Text('Bạn có chắc muốn xóa ${genre.title} khỏi nghệ sĩ này?'),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.pop(context),
+                                                        child: const Text('Hủy', style: TextStyle(color: Color(0xFF636E72))),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () {
+                                                          removeGenreFromArtist(genre.id);
+                                                          Navigator.pop(context);
+                                                        },
+                                                        child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF636E72), fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(color: valueColor ?? const Color(0xFF2D3436), fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

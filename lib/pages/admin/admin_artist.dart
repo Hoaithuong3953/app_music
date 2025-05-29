@@ -43,7 +43,7 @@ class AdminArtistPageState extends State<AdminArtistPage> {
       if (query.isEmpty) {
         filteredArtists = artists;
       } else {
-        filteredArtists = artists.where((entry) {
+        filteredArtists = artists.where((Map<String, dynamic> entry) {
           final artist = entry['artist'] as Artist;
           return artist.title.toLowerCase().contains(query);
         }).toList();
@@ -68,7 +68,7 @@ class AdminArtistPageState extends State<AdminArtistPage> {
       setState(() {
         artists = fetchedArtists;
         filteredArtists = fetchedArtists;
-        totalCount = fetchedArtists.isNotEmpty ? fetchedArtists[0]['counts'] ?? fetchedArtists.length : 0;
+        totalCount = fetchedArtists.isNotEmpty ? fetchedArtists.length : 0;
         isLoading = false;
       });
     } catch (e) {
@@ -142,7 +142,7 @@ class AdminArtistPageState extends State<AdminArtistPage> {
                     );
                   }
                 },
-                child: const Text('Chọn Ảnh Đại diện'),
+                child: const Text('Chọn Ảnh Đại Diện'),
               ),
             ],
           ),
@@ -166,7 +166,7 @@ class AdminArtistPageState extends State<AdminArtistPage> {
               createArtist(artistData, avatarFile);
               Navigator.pop(context);
             },
-            child: const Text('Tạo'),
+            child: const Text('Thêm'),
           ),
         ],
       ),
@@ -182,7 +182,7 @@ class AdminArtistPageState extends State<AdminArtistPage> {
       appBar: AppBar(
         title: Text(
           'Quản lý Nghệ sĩ',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+          style: Theme.of(context).textTheme?.headlineLarge?.copyWith(
                 fontSize: screenHeight * 0.025,
                 color: Colors.black,
               ),
@@ -239,8 +239,8 @@ class AdminArtistPageState extends State<AdminArtistPage> {
                                         child: GestureDetector(
                                           onTap: () => Navigator.pushNamed(
                                             context,
-                                            '/admin/artist/:id', // Sửa tuyến
-                                            arguments: {'id': artist.id}, // Truyền arguments đúng cách
+                                            '/admin/artist/:aid',
+                                            arguments: {'aid': artist.id}, // Truyền Map với key 'aid'
                                           ),
                                           child: ArtistCard(artist: artist),
                                         ),

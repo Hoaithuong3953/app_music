@@ -13,6 +13,7 @@ class AdminGenreService {
     String? title,
     String? sort,
     String? fields,
+    String? token,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -22,7 +23,8 @@ class AdminGenreService {
       if (sort != null) queryParams['sort'] = sort;
       if (fields != null) queryParams['fields'] = fields;
 
-      final response = await _apiClient.get('genre/', queryParameters: queryParams);
+      final response = await _apiClient.get('genre/', queryParameters: queryParams, token: token);
+      print('Get All Genres Response: $response'); // Debug
 
       if (response['success'] == true) {
         final genresData = response['data'] as List<dynamic>;
@@ -34,26 +36,28 @@ class AdminGenreService {
           };
         }).toList();
       } else {
+        print('Lỗi lấy thể loại: ${response['message']}');
         return [];
       }
     } catch (e) {
-      print('Error in getAllGenres: $e');
+      print('Lỗi trong getAllGenres: $e');
       return [];
     }
   }
 
   // Lấy chi tiết một thể loại
-  Future<Genre> getGenre(String genreId) async {
+  Future<Genre> getGenre(String genreId, {String? token}) async {
     try {
-      final response = await _apiClient.get('genre/$genreId');
+      final response = await _apiClient.get('genre/$genreId', token: token);
+      print('Get Genre By ID Response: $response'); // Debug
 
       if (response['success'] == true) {
         return Genre.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to get genre');
+        throw Exception(response['message'] ?? 'Không thể lấy thông tin thể loại');
       }
     } catch (e) {
-      throw Exception('Failed to get genre: $e');
+      throw Exception('Lỗi lấy thể loại: $e');
     }
   }
 
@@ -89,10 +93,10 @@ class AdminGenreService {
       if (response['success'] == true) {
         return Genre.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to create genre');
+        throw Exception(response['message'] ?? 'Tạo thể loại thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to create genre: $e');
+      throw Exception('Tạo thể loại thất bại: $e');
     }
   }
 
@@ -126,10 +130,10 @@ class AdminGenreService {
       if (response['success'] == true) {
         return Genre.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to update genre');
+        throw Exception(response['message'] ?? 'Cập nhật thể loại thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to update genre: $e');
+      throw Exception('Cập nhật thể loại thất bại: $e');
     }
   }
 
@@ -142,10 +146,10 @@ class AdminGenreService {
       final response = await _apiClient.delete('genre/$genreId', token: token);
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Failed to delete genre');
+        throw Exception(response['message'] ?? 'Xóa thể loại thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to delete genre: $e');
+      throw Exception('Xóa thể loại thất bại: $e');
     }
   }
 
@@ -165,10 +169,10 @@ class AdminGenreService {
       if (response['success'] == true) {
         return Genre.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to add songs to genre');
+        throw Exception(response['message'] ?? 'Thêm bài hát vào thể loại thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to add songs to genre: $e');
+      throw Exception('Thêm bài hát vào thể loại thất bại: $e');
     }
   }
 }

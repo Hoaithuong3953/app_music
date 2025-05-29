@@ -13,6 +13,7 @@ class AdminAlbumService {
     String? title,
     String? sort,
     String? fields,
+    String? token,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -22,7 +23,8 @@ class AdminAlbumService {
       if (sort != null) queryParams['sort'] = sort;
       if (fields != null) queryParams['fields'] = fields;
 
-      final response = await _apiClient.get('album/', queryParameters: queryParams);
+      final response = await _apiClient.get('album/', queryParameters: queryParams, token: token);
+      print('Get All Albums Response: $response'); // Debug
 
       if (response['success'] == true) {
         final albumsData = response['data'] as List<dynamic>;
@@ -31,22 +33,24 @@ class AdminAlbumService {
             'album': Album.fromJson(json),
             'artistName': json['artist'] != null && json['artist']['title'] != null
                 ? json['artist']['title'].toString()
-                : 'Unknown Artist',
+                : 'Không rõ nghệ sĩ',
           };
         }).toList();
       } else {
+        print('Lỗi lấy album: ${response['message']}');
         return [];
       }
     } catch (e) {
-      print('Error in getAllAlbums: $e');
+      print('Lỗi trong getAllAlbums: $e');
       return [];
     }
   }
 
   // Lấy thông tin một album theo ID
-  Future<Map<String, dynamic>> getAlbumById(String albumId) async {
+  Future<Map<String, dynamic>> getAlbumById(String albumId, {String? token}) async {
     try {
-      final response = await _apiClient.get('album/$albumId');
+      final response = await _apiClient.get('album/$albumId', token: token);
+      print('Get Album By ID Response: $response'); // Debug
 
       if (response['success'] == true) {
         final albumData = response['data'] as Map<String, dynamic>;
@@ -54,13 +58,13 @@ class AdminAlbumService {
           'album': Album.fromJson(albumData),
           'artistName': albumData['artist'] != null && albumData['artist']['title'] != null
               ? albumData['artist']['title'].toString()
-              : 'Unknown Artist',
+              : 'Không rõ nghệ sĩ',
         };
       } else {
-        throw Exception(response['message'] ?? 'Failed to get album');
+        throw Exception(response['message'] ?? 'Không thể lấy thông tin album');
       }
     } catch (e) {
-      throw Exception('Failed to get album: $e');
+      throw Exception('Lỗi lấy album: $e');
     }
   }
 
@@ -94,10 +98,10 @@ class AdminAlbumService {
       if (response['success'] == true) {
         return Album.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to create album');
+        throw Exception(response['message'] ?? 'Tạo album thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to create album: $e');
+      throw Exception('Tạo album thất bại: $e');
     }
   }
 
@@ -133,10 +137,10 @@ class AdminAlbumService {
       if (response['success'] == true) {
         return Album.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to update album');
+        throw Exception(response['message'] ?? 'Cập nhật album thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to update album: $e');
+      throw Exception('Cập nhật album thất bại: $e');
     }
   }
 
@@ -149,10 +153,10 @@ class AdminAlbumService {
       final response = await _apiClient.delete('album/$albumId', token: token);
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Failed to delete album');
+        throw Exception(response['message'] ?? 'Xóa album thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to delete album: $e');
+      throw Exception('Xóa album thất bại: $e');
     }
   }
 
@@ -172,10 +176,10 @@ class AdminAlbumService {
       if (response['success'] == true) {
         return Album.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to add songs to album');
+        throw Exception(response['message'] ?? 'Thêm bài hát vào album thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to add songs to album: $e');
+      throw Exception('Thêm bài hát vào album thất bại: $e');
     }
   }
 
@@ -195,10 +199,10 @@ class AdminAlbumService {
       if (response['success'] == true) {
         return Album.fromJson(response['data']);
       } else {
-        throw Exception(response['message'] ?? 'Failed to add genre to album');
+        throw Exception(response['message'] ?? 'Thêm thể loại vào album thất bại');
       }
     } catch (e) {
-      throw Exception('Failed to add genre to album: $e');
+      throw Exception('Thêm thể loại vào album thất bại: $e');
     }
   }
 }

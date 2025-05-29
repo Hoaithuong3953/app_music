@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../providers/user_provider.dart';
 import '../../service/admin/admin_user_service.dart';
-import '../../service/client/song_service.dart';
+import '../../service/admin/admin_song_service.dart';
 import '../../models/user.dart';
 import '../../models/song.dart';
 
@@ -24,7 +24,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
   bool isLoading = true;
   String? errorMessage;
   final AdminUserService _userService = AdminUserService();
-  final SongService _songService = SongService();
+  final AdminSongService _songService = AdminSongService();
 
   @override
   void initState() {
@@ -60,32 +60,40 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
         errorMessage = e.toString();
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
   Future<void> fetchLikedSongs() async {
     try {
-      final songs = await _songService.getAllSongs();
-      setState(() {
-        likedSongs = songs
-            .where((entry) {
-              final song = entry['song'] as Song?;
-              if (song == null || song.likes == null) return false;
-              return song.likes.contains(widget.userId);
-            })
-            .map((entry) => ({
-                  'song': entry['song'] as Song,
-                  'artistName': entry['artistName'] as String? ?? 'Không rõ nghệ sĩ',
-                }))
-            .toList();
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi tải danh sách bài hát yêu thích: $e')),
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final token = userProvider.user?.token;
+      if (token == null) {
+        throw Exception('Không có token xác thực.');
+      }
+
+      final songs = await _songService.getSongsLikedByUser(
+        userId: widget.userId,
+        token: token,
       );
+
+      if (mounted) {
+        setState(() {
+          likedSongs = songs;
+          print('Danh sách bài hát yêu thích: $likedSongs'); // Debug
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi tải danh sách bài hát yêu thích: $e')),
+        );
+      }
+      print('Lỗi fetchLikedSongs: $e'); // Debug
     }
   }
 
@@ -96,14 +104,18 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
         userId: widget.userId,
         token: userProvider.user?.token ?? '',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xóa người dùng thành công')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xóa người dùng thành công')),
+        );
+      }
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
     }
   }
 
@@ -319,9 +331,11 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                           setState(() {
                             avatarFile = File(result.files.single.path!);
                           });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Ảnh đại diện đã được chọn')),
-                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Ảnh đại diện đã được chọn')),
+                            );
+                          }
                         }
                       },
                       icon: const Icon(Icons.image, color: Color(0xFF0984E3)),
@@ -390,24 +404,28 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                                 avatarFile: avatarFile,
                               );
                               Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.check_circle, color: Colors.white),
-                                      const SizedBox(width: 8),
-                                      const Text('Cập nhật người dùng thành công'),
-                                    ],
+                              fetchUserDetails();
+                              fetchLikedSongs(); // Làm mới danh sách bài hát
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(Icons.check_circle, color: Colors.white),
+                                        const SizedBox(width: 8),
+                                        const Text('Cập nhật người dùng thành công'),
+                                      ],
+                                    ),
+                                    backgroundColor: const Color(0xFF00B894),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    margin: const EdgeInsets.all(16),
+                                    duration: const Duration(seconds: 3),
                                   ),
-                                  backgroundColor: const Color(0xFF00B894),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  margin: const EdgeInsets.all(16),
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
+                                );
+                              }
                             } catch (e) {
                               setState(() {
                                 apiError = e.toString();
@@ -678,7 +696,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                                   ),
                                   _buildInfoRow(
                                     'Ngày tạo',
-                                    userData!['user'].createdAt.toLocal().toString().split('.')[0],
+                                    userData!['user'].createdAt?.toLocal().toString().split('.')[0] ?? 'N/A',
                                   ),
                                 ],
                               ),
@@ -701,20 +719,30 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Icon(
-                                        Icons.favorite,
-                                        color: Color(0xFFE74C3C),
-                                        size: 24,
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.favorite,
+                                            color: Color(0xFFE74C3C),
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Bài hát yêu thích',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2D3436),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 12),
-                                      const Text(
-                                        'Bài hát yêu thích',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF2D3436),
-                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.refresh, color: Color(0xFF0984E3)),
+                                        onPressed: fetchLikedSongs,
+                                        tooltip: 'Làm mới danh sách',
                                       ),
                                     ],
                                   ),
@@ -800,11 +828,13 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                                                 color: Color(0xFF636E72),
                                               ),
                                             ),
-                                            onTap: () => Navigator.pushNamed(
-                                              context,
-                                              '/admin/song/:sid',
-                                              arguments: song['song'].id,
-                                            ),
+                                            onTap: () {
+                                              Navigator.pushNamed(
+                                                context,
+                                                '/admin/song/:sid',
+                                                arguments: song['song'].id,
+                                              ).then((_) => fetchLikedSongs()); // Làm mới khi quay lại
+                                            },
                                           ),
                                         );
                                       },

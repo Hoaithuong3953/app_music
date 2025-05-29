@@ -24,13 +24,13 @@ class AdminArtistService {
       if (fields != null) queryParams['fields'] = fields;
 
       final response = await _apiClient.get('artist/', queryParameters: queryParams, token: token);
+      print('Get All Artists Response: $response'); // Debug
 
       if (response['success'] == true) {
         final artistsData = response['data'] as List<dynamic>;
         return artistsData.map((json) {
           return {
             'artist': Artist.fromJson(json),
-            // Backend không trả về trường liên quan trực tiếp, nên không cần thêm thông tin bổ sung
           };
         }).toList();
       } else {
@@ -46,11 +46,15 @@ class AdminArtistService {
   Future<Map<String, dynamic>> getArtistById(String artistId, {String? token}) async {
     try {
       final response = await _apiClient.get('artist/$artistId', token: token);
+      print('Raw Artist Response: $response'); // Debug
 
       if (response['success'] == true) {
         final artistData = response['data'] as Map<String, dynamic>;
+        print('Artist Data before fromJson: $artistData'); // Debug
+        final artist = Artist.fromJson(artistData);
+        print('Artist after fromJson: $artist'); // Debug
         return {
-          'artist': Artist.fromJson(artistData),
+          'artist': artist,
         };
       } else {
         throw Exception(response['message'] ?? 'Failed to get artist');
