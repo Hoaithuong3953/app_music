@@ -1,14 +1,16 @@
 import 'package:music_player_app/models/song.dart';
 
 class RankingSong {
-  final Song song;
+  final String songId; // Thay vì Song, chỉ lưu ObjectId nếu chưa populate
+  final Song? song; // Lưu Song nếu đã populate
   final String artist;
   final List<String> genre;
   final int rank;
   final double score;
 
   RankingSong({
-    required this.song,
+    required this.songId,
+    this.song,
     required this.artist,
     required this.genre,
     required this.rank,
@@ -17,20 +19,23 @@ class RankingSong {
 
   factory RankingSong.fromJson(Map<String, dynamic> json) {
     return RankingSong(
-      song: Song.fromJson(json),
-      artist: json['artist']?['title'] ?? 'Unknown',
-      genre: (json['genre'] as List<dynamic>?)?.map((g) => g['title'] as String).toList() ?? [],
-      rank: json['rank'] as int,
+      songId: json['song'] is Map<String, dynamic> ? json['song']['_id']?.toString() ?? '' : json['song']?.toString() ?? '',
+      song: json['song'] is Map<String, dynamic> ? Song.fromJson(json['song']) : null,
+      artist: json['artist'] != null && json['artist']['title'] != null ? json['artist']['title'] : 'Unknown',
+      genre: json['genre'] != null && (json['genre'] as List<dynamic>?) != null
+          ? (json['genre'] as List<dynamic>).map((g) => g['title'] as String).toList()
+          : [],
+      rank: json['rank'] as int? ?? 0,
       score: (json['score'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      '_id': song.id,
-      'title': song.title,
-      'url': song.url,
-      'coverImage': song.coverImage,
+      '_id': song?.id ?? songId,
+      'title': song?.title,
+      'url': song?.url,
+      'coverImage': song?.coverImage,
       'artist': {'title': artist},
       'genre': genre.map((g) => {'title': g}).toList(),
       'rank': rank,

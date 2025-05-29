@@ -7,12 +7,14 @@ import '../../models/song.dart';
 class SongService {
   final ApiClient _apiClient = ApiClient();
 
+  // Lấy danh sách tất cả bài hát với tìm kiếm theo title hoặc likes
   Future<List<Map<String, dynamic>>> getAllSongs({
     int page = 1,
     int limit = 10,
+    String? title,
+    String? likes,
     String? sort,
     String? fields,
-    String? title, // Thêm tham số title để tìm kiếm
   }) async {
     const maxRetries = 3;
     const retryDelay = Duration(seconds: 1);
@@ -24,25 +26,30 @@ class SongService {
         queryParams['limit'] = limit.toString();
         if (sort != null) queryParams['sort'] = sort;
         if (fields != null) queryParams['fields'] = fields;
-        if (title != null) queryParams['title'] = title; // Thêm tham số title vào query
+        if (title != null) queryParams['title'] = title;
+        if (likes != null) queryParams['likes'] = likes; // Thêm tham số likes
 
         final response = await _apiClient.get('song/', queryParameters: queryParams);
 
         if (response['success'] == true) {
-          final songsData = response['data'] as List<dynamic>;
-          return songsData.map((json) {
-            return {
-              'song': Song.fromJson(json),
-              'artistName': json['artist'] != null
-                  ? (json['artist']['title']?.toString() ?? 'Unknown Artist')
-                  : 'Unknown Artist',
-            };
-          }).toList();
+          if (response['data'] is List<dynamic>) {
+            final songsData = response['data'] as List<dynamic>;
+            return songsData.map((json) {
+              return {
+                'song': Song.fromJson(json),
+                'artistName': json['artist'] != null
+                    ? (json['artist']['title']?.toString() ?? 'Unknown Artist')
+                    : 'Unknown Artist',
+              };
+            }).toList();
+          } else {
+            throw Exception('Invalid data format: data is not a list');
+          }
         } else {
-          return [];
+          throw Exception(response['message'] ?? 'Failed to fetch songs');
         }
       } catch (e) {
-        if (e.toString().contains('429') && attempt < maxRetries) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
           print('Rate limit hit for getAllSongs, retrying ($attempt/$maxRetries)...');
           await Future.delayed(retryDelay);
           continue;
@@ -64,12 +71,16 @@ class SongService {
         final response = await _apiClient.get('song/$songId');
 
         if (response['success'] == true) {
-          return Song.fromJson(response['data']);
+          if (response['data'] is Map<String, dynamic>) {
+            return Song.fromJson(response['data']);
+          } else {
+            throw Exception('Invalid data format: data is not a map');
+          }
         } else {
           throw Exception(response['message'] ?? 'Failed to get song');
         }
       } catch (e) {
-        if (e.toString().contains('429') && attempt < maxRetries) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
           print('Rate limit hit for song $songId, retrying ($attempt/$maxRetries)...');
           await Future.delayed(retryDelay);
           continue;
@@ -83,25 +94,23 @@ class SongService {
 
   Future<List<Song>> getSongs(List<String> songIds) async {
     List<Song> songs = [];
-    const delayBetweenRequests = Duration(milliseconds: 500);
 
-    for (int i = 0; i < songIds.length; i++) {
+    // Sử dụng Future.wait để gọi đồng thời, nhưng vẫn giữ cơ chế retry trong getSong
+    final futures = songIds.map((id) async {
       try {
-        final song = await getSong(songIds[i]);
-        songs.add(song);
+        return await getSong(id);
       } catch (e) {
-        print('Error fetching song ${songIds[i]}: $e');
-        songs.add(Song(
-          id: songIds[i],
+        print('Error fetching song $id: $e');
+        return Song(
+          id: id,
           title: 'Unknown Song',
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
-        ));
+        );
       }
-      if (i < songIds.length - 1) {
-        await Future.delayed(delayBetweenRequests);
-      }
-    }
+    }).toList();
+
+    songs = await Future.wait(futures, eagerError: true);
 
     return songs;
   }

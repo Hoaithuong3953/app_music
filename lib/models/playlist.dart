@@ -1,13 +1,13 @@
-import './song.dart';
-import './user.dart';
+import 'song.dart';
+import 'user.dart';
 
 class Playlist {
   final String id;
   final String title;
   final String? slugify;
   final String? coverImageURL;
-  final dynamic user; // Có thể là String (ID) hoặc User
-  final List<Song> songs;
+  final dynamic user;
+  final List<dynamic> songs; // Sửa thành List<dynamic> để linh hoạt hơn
   final bool isPublic;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -30,8 +30,10 @@ class Playlist {
       title: json['title']?.toString() ?? '',
       slugify: json['slugify']?.toString(),
       coverImageURL: json['coverImageURL']?.toString(),
-      user: json['user'] is Map<String, dynamic> ? User.fromJson(json['user']) : json['user']?.toString(),
-      songs: (json['songs'] as List<dynamic>?)?.map((e) => Song.fromJson(e)).toList() ?? [],
+      user: json['user'] == null
+          ? throw Exception('User is required')
+          : (json['user'] is Map<String, dynamic> ? User.fromJson(json['user']) : json['user']?.toString()),
+      songs: (json['songs'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? Song.fromJson(e) : e.toString()).toList() ?? [],
       isPublic: json['isPublic'] ?? true,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
@@ -45,21 +47,20 @@ class Playlist {
       'slugify': slugify,
       'coverImageURL': coverImageURL,
       'user': user is User ? (user as User).toJson() : user,
-      'songs': songs.map((e) => e.toJson()).toList(),
+      'songs': songs.map((e) => e is Song ? e.toJson() : e).toList(),
       'isPublic': isPublic,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
-  // Thêm phương thức copyWith
   Playlist copyWith({
     String? id,
     String? title,
     String? slugify,
     String? coverImageURL,
     dynamic user,
-    List<Song>? songs,
+    List<dynamic>? songs, // Sửa thành List<dynamic>
     bool? isPublic,
     DateTime? createdAt,
     DateTime? updatedAt,

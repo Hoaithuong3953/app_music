@@ -1,17 +1,26 @@
+import 'package:flutter/material.dart';
+
 class Song {
   final String id;
   final String title;
   final String? description;
   final String? lyrics;
-  final String? artist; // Tham chiếu đến Artist (ObjectId)
-  final String? album;  // Tham chiếu đến Album (ObjectId)
-  final List<String> genre; // Danh sách tham chiếu đến Genre (ObjectId)
+  final String? artist;
+  final String? album;
+  final List<String> genre;
   final String? duration;
   final String? slugify;
   final String? url;
   final String? coverImage;
-  final List<String> likes; // Danh sách tham chiếu đến User (ObjectId)
+  final int views;
+  final int dailyViews;
+  final int weeklyViews;
+  final int trendingScore;
+  final DateTime lastReset;
+  final List<String> likes;
+  final List<String> dislikes; // Thêm trường dislikes
   final List<Comment> comments;
+  final bool isPublic; // Thêm trường isPublic
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,8 +36,15 @@ class Song {
     this.slugify,
     this.url,
     this.coverImage,
+    this.views = 0,
+    this.dailyViews = 0,
+    this.weeklyViews = 0,
+    this.trendingScore = 0,
+    required this.lastReset,
     this.likes = const [],
+    this.dislikes = const [], // Mặc định rỗng
     this.comments = const [],
+    this.isPublic = true, // Mặc định true
     required this.createdAt,
     required this.updatedAt,
   });
@@ -39,7 +55,6 @@ class Song {
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString(),
       lyrics: json['lyrics']?.toString(),
-      // Parse artist từ object thành String (title của nghệ sĩ)
       artist: json['artist'] != null
           ? (json['artist'] is Map<String, dynamic> && json['artist']['title'] != null
           ? json['artist']['title'].toString()
@@ -51,8 +66,15 @@ class Song {
       slugify: json['slugify']?.toString(),
       url: json['url']?.toString(),
       coverImage: json['coverImage']?.toString(),
+      views: json['views']?.toInt() ?? 0,
+      dailyViews: json['dailyViews']?.toInt() ?? 0,
+      weeklyViews: json['weeklyViews']?.toInt() ?? 0,
+      trendingScore: json['trendingScore']?.toInt() ?? 0,
+      lastReset: DateTime.tryParse(json['lastReset']?.toString() ?? '') ?? DateTime.now(),
       likes: (json['likes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      dislikes: (json['dislikes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [], // Ánh xạ dislikes
       comments: (json['comments'] as List<dynamic>?)?.map((e) => Comment.fromJson(e)).toList() ?? [],
+      isPublic: json['isPublic'] ?? true, // Ánh xạ isPublic
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
@@ -71,8 +93,15 @@ class Song {
       'slugify': slugify,
       'url': url,
       'coverImage': coverImage,
+      'views': views,
+      'dailyViews': dailyViews,
+      'weeklyViews': weeklyViews,
+      'trendingScore': trendingScore,
+      'lastReset': lastReset.toIso8601String(),
       'likes': likes,
+      'dislikes': dislikes,
       'comments': comments.map((e) => e.toJson()).toList(),
+      'isPublic': isPublic,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -80,7 +109,7 @@ class Song {
 }
 
 class Comment {
-  final String user; // Tham chiếu đến User (ObjectId)
+  final String user;
   final String text;
   final DateTime createdAt;
 

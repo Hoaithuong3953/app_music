@@ -1,11 +1,12 @@
 class Album {
   final String id;
   final String title;
-  final String? artist; // Tham chiếu đến Artist (ObjectId)
+  final String? artist;
   final String slugify;
-  final String? genre;  // Tham chiếu đến Genre (ObjectId)
+  final String? genre;
   final String? coverImageURL;
-  final List<String> songs; // Danh sách tham chiếu đến Song (ObjectId)
+  final List<String> songs;
+  final bool isPublic; // Thêm trường isPublic
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +18,7 @@ class Album {
     this.genre,
     this.coverImageURL,
     this.songs = const [],
+    this.isPublic = true, // Mặc định true
     required this.createdAt,
     required this.updatedAt,
   });
@@ -25,11 +27,12 @@ class Album {
     return Album(
       id: json['_id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
-      artist: json['artist']?.toString(),
+      artist: json['artist'] is Map<String, dynamic> ? json['artist']['_id']?.toString() : json['artist']?.toString(),
       slugify: json['slugify']?.toString() ?? '',
-      genre: json['genre']?.toString(),
+      genre: json['genre'] is Map<String, dynamic> ? json['genre']['_id']?.toString() : json['genre']?.toString(),
       coverImageURL: json['coverImageURL']?.toString(),
-      songs: (json['songs'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      songs: (json['songs'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? e['_id']?.toString() ?? '' : e.toString()).where((id) => id.isNotEmpty).toList() ?? [],
+      isPublic: json['isPublic'] ?? true, // Ánh xạ isPublic
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
@@ -44,6 +47,7 @@ class Album {
       'genre': genre,
       'coverImageURL': coverImageURL,
       'songs': songs,
+      'isPublic': isPublic,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };

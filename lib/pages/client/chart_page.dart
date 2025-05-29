@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/song.dart';
-import '../../widgets/client/song_tile.dart';
 import '../../models/ranking_song.dart';
 import '../../providers/ranking_provider.dart';
 import '../../providers/song_provider.dart';
 import '../../providers/audio_handler_provider.dart';
 import '../../providers/playback_provider.dart';
+import '../../service/client/song_service.dart'; // Thêm SongService
+import '../../widgets/client/song_tile.dart';
 
 class ChartPage extends StatefulWidget {
   @override
@@ -16,6 +17,7 @@ class ChartPage extends StatefulWidget {
 class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isInitialized = false;
+  final SongService _songService = SongService(); // Khởi tạo SongService
 
   @override
   void initState() {
@@ -44,7 +46,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
   Future<void> _playSong(BuildContext context, Song song, List<Song> playlist, String playlistId) async {
     try {
       if (song.url == null || song.url!.isEmpty) {
-        if (!mounted) return; // Kiểm tra mounted
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Cannot play song: URL is missing')),
         );
@@ -55,23 +57,37 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
       final audioHandlerProvider = Provider.of<AudioHandlerProvider>(context, listen: false);
       final playbackProvider = Provider.of<PlaybackProvider>(context, listen: false);
 
-      // Cập nhật danh sách phát và playlistId
       songProvider.setPlaylist(playlist, playlistId: playlistId);
-
-      // Cập nhật bài hát hiện tại
       songProvider.setCurrentSong(song);
 
-      // Nếu bài hát hiện tại đã là bài này và đang phát, thì tạm dừng
       if (songProvider.currentSong?.id == song.id && playbackProvider.isPlaying) {
         await audioHandlerProvider.playPause();
       } else {
-        // Phát bài hát mới
         await audioHandlerProvider.playSong(song);
       }
     } catch (e) {
-      if (!mounted) return; // Kiểm tra mounted
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error playing song: $e')),
+      );
+    }
+  }
+
+  // Hàm mới để lấy thông tin bài hát nếu song chưa được populate
+  Future<Song> _fetchSong(String songId) async {
+    try {
+      return await _songService.getSong(songId);
+    } catch (e) {
+      if (!mounted) throw Exception('Context not mounted');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching song: $e')),
+      );
+      return Song(
+        id: songId,
+        title: 'Unknown Song',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        // lastReset: DateTime.now(),
       );
     }
   }
@@ -108,7 +124,6 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         child: TabBarView(
           controller: _tabController,
           children: [
-            // Tab Day
             Consumer<RankingProvider>(
               builder: (context, rankingProvider, child) {
                 return _buildTabContent(
@@ -123,7 +138,6 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
                 );
               },
             ),
-            // Tab Week
             Consumer<RankingProvider>(
               builder: (context, rankingProvider, child) {
                 return _buildTabContent(
@@ -138,7 +152,6 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
                 );
               },
             ),
-            // Tab Trending
             Consumer<RankingProvider>(
               builder: (context, rankingProvider, child) {
                 return _buildTabContent(
@@ -170,7 +183,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         required int tabIndex,
       }) {
     if (isLoading) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (errorMessage != null) {
@@ -189,54 +202,89 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top 3 Grid: Top 1 ở giữa và to hơn, Top 2 và 3 ở hai bên
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Top 2 (bên trái)
                 Expanded(
-                  child: _buildTopSongCard(
-                    context,
-                    rank: 2,
-                    songData: songs[1],
-                    imageSize: screenWidth * 0.18,
-                    fontSizeTitle: screenHeight * 0.018,
-                    fontSizeArtist: screenHeight * 0.014,
-                    fontSizePlays: screenHeight * 0.012,
-                    screenWidth: screenWidth,
-                    songs: songs,
-                    tabIndex: tabIndex,
+                  child: FutureBuilder<Song>(
+                    future: songs[1].song != null ? Future.value(songs[1].song) : _fetchSong(songs[1].songId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      final song = snapshot.data!;
+                      return _buildTopSongCard(
+                        context,
+                        rank: 2,
+                        songData: songs[1],
+                        song: song,
+                        imageSize: screenWidth * 0.18,
+                        fontSizeTitle: screenHeight * 0.018,
+                        fontSizeArtist: screenHeight * 0.014,
+                        fontSizePlays: screenHeight * 0.012,
+                        screenWidth: screenWidth,
+                        songs: songs,
+                        tabIndex: tabIndex,
+                      );
+                    },
                   ),
                 ),
-                // Top 1 (ở giữa, to hơn)
                 Expanded(
-                  child: _buildTopSongCard(
-                    context,
-                    rank: 1,
-                    songData: songs[0],
-                    imageSize: screenWidth * 0.32,
-                    fontSizeTitle: screenHeight * 0.025,
-                    fontSizeArtist: screenHeight * 0.018,
-                    fontSizePlays: screenHeight * 0.014,
-                    screenWidth: screenWidth,
-                    songs: songs,
-                    tabIndex: tabIndex,
+                  child: FutureBuilder<Song>(
+                    future: songs[0].song != null ? Future.value(songs[0].song) : _fetchSong(songs[0].songId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      final song = snapshot.data!;
+                      return _buildTopSongCard(
+                        context,
+                        rank: 1,
+                        songData: songs[0],
+                        song: song,
+                        imageSize: screenWidth * 0.32,
+                        fontSizeTitle: screenHeight * 0.025,
+                        fontSizeArtist: screenHeight * 0.018,
+                        fontSizePlays: screenHeight * 0.014,
+                        screenWidth: screenWidth,
+                        songs: songs,
+                        tabIndex: tabIndex,
+                      );
+                    },
                   ),
                 ),
-                // Top 3 (bên phải)
                 Expanded(
-                  child: _buildTopSongCard(
-                    context,
-                    rank: 3,
-                    songData: songs[2],
-                    imageSize: screenWidth * 0.18,
-                    fontSizeTitle: screenHeight * 0.018,
-                    fontSizeArtist: screenHeight * 0.014,
-                    fontSizePlays: screenHeight * 0.012,
-                    screenWidth: screenWidth,
-                    songs: songs,
-                    tabIndex: tabIndex,
+                  child: FutureBuilder<Song>(
+                    future: songs[2].song != null ? Future.value(songs[2].song) : _fetchSong(songs[2].songId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      final song = snapshot.data!;
+                      return _buildTopSongCard(
+                        context,
+                        rank: 3,
+                        songData: songs[2],
+                        song: song,
+                        imageSize: screenWidth * 0.18,
+                        fontSizeTitle: screenHeight * 0.018,
+                        fontSizeArtist: screenHeight * 0.014,
+                        fontSizePlays: screenHeight * 0.012,
+                        screenWidth: screenWidth,
+                        songs: songs,
+                        tabIndex: tabIndex,
+                      );
+                    },
                   ),
                 ),
               ],
@@ -250,20 +298,37 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
               ),
             ),
             SizedBox(height: screenHeight * 0.01),
-            // Danh sách bài hát từ vị trí 4 trở đi
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: songs.length - 3,
               itemBuilder: (context, index) {
                 final songData = songs[index + 3];
-                return SongTile(
-                  song: songData.song,
-                  artistName: songData.artist,
-                  index: index + 4,
-                  isRanking: true,
-                  playlist: songs.map((data) => data.song).toList(),
-                  playlistId: 'chart_${_tabController.index}',
+                return FutureBuilder<Song>(
+                  future: songData.song != null ? Future.value(songData.song) : _fetchSong(songData.songId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+                    final song = snapshot.data!;
+                    return SongTile(
+                      song: song,
+                      artistName: songData.artist,
+                      index: index + 4,
+                      isRanking: true,
+                      playlist: songs.map((data) => data.song ?? Song(
+                        id: data.songId,
+                        title: 'Unknown Song',
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                        // lastReset: DateTime.now(),
+                      )).toList(),
+                      playlistId: 'chart_${_tabController.index}',
+                    );
+                  },
                 );
               },
             ),
@@ -277,6 +342,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
       BuildContext context, {
         required int rank,
         required RankingSong songData,
+        required Song song, // Thêm tham số song để đảm bảo luôn có Song đầy đủ
         required double imageSize,
         required double fontSizeTitle,
         required double fontSizeArtist,
@@ -285,7 +351,6 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         required List<RankingSong> songs,
         required int tabIndex,
       }) {
-    final song = songData.song;
     final artistName = songData.artist;
     final plays = songData.score;
 
@@ -313,11 +378,16 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         SizedBox(height: imageSize * 0.05),
         GestureDetector(
           onTap: () {
-            // Phát nhạc khi bấm vào ảnh bìa
             _playSong(
               context,
               song,
-              songs.map((data) => data.song).toList(),
+              songs.map((data) => data.song ?? Song(
+                id: data.songId,
+                title: 'Unknown Song',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+                // lastReset: DateTime.now(),
+              )).toList(),
               'chart_$tabIndex',
             );
           },
