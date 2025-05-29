@@ -44,6 +44,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
   Future<void> _playSong(BuildContext context, Song song, List<Song> playlist, String playlistId) async {
     try {
       if (song.url == null || song.url!.isEmpty) {
+        if (!mounted) return; // Kiểm tra mounted
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Cannot play song: URL is missing')),
         );
@@ -68,6 +69,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         await audioHandlerProvider.playSong(song);
       }
     } catch (e) {
+      if (!mounted) return; // Kiểm tra mounted
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error playing song: $e')),
       );

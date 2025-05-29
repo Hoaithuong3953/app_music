@@ -38,6 +38,8 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Future<void> _fetchPlaylists() async {
+    if (!mounted) return; // Kiểm tra mounted
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -45,6 +47,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
     try {
       final fetchedPlaylists = await _playlistService.getAllPlaylists();
+      if (!mounted) return; // Kiểm tra mounted
       setState(() {
         playlists = fetchedPlaylists.map((playlist) {
           return {
@@ -58,6 +61,7 @@ class _LibraryPageState extends State<LibraryPage> {
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return; // Kiểm tra mounted
       setState(() {
         errorMessage = e.toString();
         isLoading = false;
@@ -66,6 +70,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   void _selectTab(String tab) {
+    if (!mounted) return; // Kiểm tra mounted
     setState(() {
       _selectedTab = (_selectedTab == tab) ? null : tab;
     });
@@ -99,6 +104,7 @@ class _LibraryPageState extends State<LibraryPage> {
           return;
         }
 
+        if (!mounted) return; // Kiểm tra mounted
         setState(() {
           _selectedImage = file;
           print('Updated _selectedImage: $_selectedImage');
@@ -113,6 +119,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   void _removeImage() {
+    if (!mounted) return; // Kiểm tra mounted
     setState(() {
       _selectedImage = null;
     });
@@ -131,6 +138,7 @@ class _LibraryPageState extends State<LibraryPage> {
     }
 
     _titleController.clear();
+    if (!mounted) return; // Kiểm tra mounted
     setState(() {
       _selectedImage = null;
       _isCreating = false;
@@ -398,7 +406,6 @@ class _LibraryPageState extends State<LibraryPage> {
                   final songCount = data['songCount'] as int;
                   return GestureDetector(
                     onTap: () {
-                      // Sử dụng Navigator con của MainPage.dart
                       Navigator.of(context).pushNamed(
                         '/playlist-detail',
                         arguments: {'playlistId': playlist.id},
