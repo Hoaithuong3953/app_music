@@ -58,7 +58,30 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           detailedSongs.add(detailedSong);
         } catch (e) {
           print('Error fetching song ${song.id}: $e');
-          detailedSongs.add(song);
+          detailedSongs.add(Song(
+            id: song.id,
+            title: 'Unknown Song',
+            description: null,
+            lyrics: null,
+            artist: null,
+            album: null,
+            genre: const [],
+            duration: null,
+            slugify: null,
+            url: null,
+            coverImage: null,
+            views: 0,
+            dailyViews: 0,
+            weeklyViews: 0,
+            trendingScore: 0,
+            lastReset: DateTime.now(),
+            likes: const [],
+            dislikes: const [],
+            comments: const [],
+            isPublic: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
         }
       }
 
@@ -118,7 +141,30 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           detailedSongs.add(detailedSong);
         } catch (e) {
           print('Error fetching song ${song.id}: $e');
-          detailedSongs.add(song);
+          detailedSongs.add(Song(
+            id: song.id,
+            title: 'Unknown Song',
+            description: null,
+            lyrics: null,
+            artist: null,
+            album: null,
+            genre: const [],
+            duration: null,
+            slugify: null,
+            url: null,
+            coverImage: null,
+            views: 0,
+            dailyViews: 0,
+            weeklyViews: 0,
+            trendingScore: 0,
+            lastReset: DateTime.now(),
+            likes: const [],
+            dislikes: const [],
+            comments: const [],
+            isPublic: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
         }
       }
 
@@ -274,7 +320,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     artistName: song.artist ?? 'Unknown Artist',
                     index: index + 1,
                     isRanking: false,
-                    playlist: playlist!.songs,
+                    playlist: List<Song>.from(playlist!.songs),
                     playlistId: playlist!.id,
                   );
                 },
