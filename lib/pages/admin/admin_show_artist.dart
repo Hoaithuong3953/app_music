@@ -84,7 +84,7 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
           print('Songs Data: $songsData');
           print('Songs Data Type: ${songsData.runtimeType}');
 
-          fetchedSongs = (songsData as List<dynamic>)
+          fetchedSongs = (songsData['songs'] as List<dynamic>)
               .where((json) {
                 final song = json['song'] as Song?;
                 final songId = song?.id?.toString();
@@ -293,7 +293,8 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
 
   Future<void> addSongsToArtist() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final allSongs = await _songService.getAllSongs(token: userProvider.user?.token ?? '');
+    final allSongsData = await _songService.getAllSongs(token: userProvider.user?.token ?? '');
+    final allSongs = allSongsData['songs'] as List<dynamic>;
     final selectedSongIds = <String>[];
 
     showDialog(

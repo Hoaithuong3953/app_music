@@ -4,8 +4,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:audioplayers/audioplayers.dart';
 import '../../providers/user_provider.dart';
-import '../../service/client/song_service.dart';
+import '../../service/admin/admin_song_service.dart';
 import '../../models/song.dart';
 
 class AdminShowSongPage extends StatefulWidget {
@@ -19,15 +21,29 @@ class AdminShowSongPage extends StatefulWidget {
 
 class _AdminShowSongPageState extends State<AdminShowSongPage> {
   Song? song;
-  List<dynamic> likedUsers = [];
   bool isLoading = true;
   bool isRateLimited = false;
-  final SongService _songService = SongService();
+  final AdminSongService _songService = AdminSongService();
+  
+  // Quản lý phát nhạc
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool isPlaying = false;
+  
+  // Quản lý thời lượng bài hát
+  Duration? songDuration;
+  bool isLoadingDuration = true;
 
   @override
   void initState() {
     super.initState();
     fetchSongDetails();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.stop();
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> fetchSongDetails({int retryCount = 0, int maxRetries = 3}) async {
@@ -37,27 +53,50 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
         isRateLimited = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Too many requests. Please try again later.')),
+        const SnackBar(content: Text('Quá nhiều yêu cầu. Vui lòng thử lại sau.')),
       );
       return;
     }
 
     try {
-      final song = await _songService.getSong(widget.songId);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final result = await _songService.getAllSongs(
+        token: userProvider.user?.token ?? '',
+        songId: widget.songId,
+      );
+
+      print('Fetched Songs Result: $result');
+
+      final songsData = result['songs'] as List<dynamic>;
+      final songData = songsData.firstWhere(
+        (entry) => (entry['song'] as Song).id == widget.songId,
+        orElse: () => <String, Object>{},
+      );
+
+      if (songData.isEmpty) {
+        throw Exception('Không tìm thấy bài hát với ID: ${widget.songId}');
+      }
+
       setState(() {
-        this.song = song;
+        song = songData['song'] as Song;
         isLoading = false;
       });
-      // Chỉ gọi fetchLikedUsers sau khi lấy được chi tiết bài hát
-      await fetchLikedUsers();
+
+      // Lấy thời lượng bài hát từ URL
+      if (song?.url != null) {
+        await fetchSongDuration();
+      } else {
+        setState(() {
+          isLoadingDuration = false;
+        });
+      }
     } catch (e) {
       if (e.toString().contains('429')) {
-        // Đợi 1 giây trước khi thử lại
         await Future.delayed(const Duration(seconds: 1));
         await fetchSongDetails(retryCount: retryCount + 1, maxRetries: maxRetries);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading song: $e')),
+          SnackBar(content: Text('Lỗi tải bài hát: $e')),
         );
         setState(() {
           isLoading = false;
@@ -66,48 +105,55 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
     }
   }
 
-  Future<void> fetchLikedUsers() async {
+  // Hàm lấy thời lượng bài hát từ URL
+  Future<void> fetchSongDuration() async {
     try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final songResponse = await http.get(
-        Uri.parse('http://localhost:8080/api/v1/song/${widget.songId}'),
-        headers: {
-          'Authorization': 'Bearer ${userProvider.user?.token}',
-          'Content-Type': 'application/json',
-        },
+      // Tải metadata của bài hát từ URL
+      await _audioPlayer.setSource(UrlSource(song!.url!));
+      final duration = await _audioPlayer.getDuration();
+      setState(() {
+        songDuration = duration;
+        isLoadingDuration = false;
+      });
+    } catch (e) {
+      print('Lỗi lấy thời lượng bài hát: $e');
+      setState(() {
+        isLoadingDuration = false;
+      });
+    }
+  }
+
+  // Hàm định dạng thời lượng thành phút:giây
+  String formatDuration(Duration? duration) {
+    if (duration == null) return 'Không rõ';
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> togglePlayPause() async {
+    if (song?.url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không có URL để phát bài hát')),
       );
+      return;
+    }
 
-      if (songResponse.statusCode == 200) {
-        final songData = jsonDecode(songResponse.body)['data'];
-        final userIds = songData['likes'] is List ? songData['likes'] : [];
-        if (userIds.isNotEmpty) {
-          final response = await http.get(
-            Uri.parse('http://localhost:8080/api/v1/user?_id=${userIds.join(',')}'),
-            headers: {
-              'Authorization': 'Bearer ${userProvider.user?.token}',
-              'Content-Type': 'application/json',
-            },
-          );
-
-          if (response.statusCode == 200) {
-            final data = jsonDecode(response.body);
-            setState(() {
-              likedUsers = data['data'] is List ? data['data'] : [];
-            });
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to load liked users: ${response.statusCode}')),
-            );
-          }
-        }
+    try {
+      if (isPlaying) {
+        await _audioPlayer.pause();
+        setState(() {
+          isPlaying = false;
+        });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load song data: ${songResponse.statusCode}')),
-        );
+        await _audioPlayer.play(UrlSource(song!.url!));
+        setState(() {
+          isPlaying = true;
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading liked users: $e')),
+        SnackBar(content: Text('Lỗi phát nhạc: $e')),
       );
     }
   }
@@ -125,22 +171,22 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Song deleted successfully')),
+          const SnackBar(content: Text('Xóa bài hát thành công')),
         );
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete song')),
+          const SnackBar(content: Text('Xóa bài hát thất bại')),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
 
-  Future<void> updateSong(Map<String, dynamic> songData, File? songFile, File? coverFile) async {
+  Future<void> updateSong(Map<String, dynamic> songData, File? songFile, PlatformFile? coverFile) async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       var request = http.MultipartRequest(
@@ -154,12 +200,24 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
         request.fields[key] = value.toString();
       });
 
-      if (songFile != null) {
+      if (songFile != null && !kIsWeb) {
         request.files.add(await http.MultipartFile.fromPath('song', songFile.path));
       }
 
       if (coverFile != null) {
-        request.files.add(await http.MultipartFile.fromPath('cover', coverFile.path));
+        if (kIsWeb) {
+          if (coverFile.bytes != null) {
+            request.files.add(http.MultipartFile.fromBytes(
+              'cover',
+              coverFile.bytes!,
+              filename: coverFile.name,
+            ));
+          }
+        } else {
+          if (coverFile.path != null) {
+            request.files.add(await http.MultipartFile.fromPath('cover', coverFile.path!));
+          }
+        }
       }
 
       final response = await request.send();
@@ -167,17 +225,17 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Song updated successfully')),
+          const SnackBar(content: Text('Cập nhật bài hát thành công')),
         );
         fetchSongDetails();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update song: $responseBody')),
+          SnackBar(content: Text('Cập nhật bài hát thất bại: $responseBody')),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Lỗi: $e')),
       );
     }
   }
@@ -187,51 +245,53 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
     final artistController = TextEditingController(text: song?.artist);
     final genreController = TextEditingController(text: song?.genre.join(','));
     File? songFile;
-    File? coverFile;
+    PlatformFile? coverFile;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Song'),
+        title: const Text('Chỉnh sửa bài hát'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: const InputDecoration(labelText: 'Tiêu đề'),
               ),
               TextField(
                 controller: artistController,
-                decoration: const InputDecoration(labelText: 'Artist ID'),
+                decoration: const InputDecoration(labelText: 'ID Nghệ sĩ'),
               ),
               TextField(
                 controller: genreController,
-                decoration: const InputDecoration(labelText: 'Genre IDs (comma-separated)'),
+                decoration: const InputDecoration(labelText: 'ID Thể loại (phân cách bằng dấu phẩy)'),
               ),
               ElevatedButton(
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.audio);
                   if (result != null) {
-                    songFile = File(result.files.single.path!);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Song file selected')),
-                    );
+                    if (!kIsWeb) {
+                      songFile = File(result.files.single.path!);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã chọn file bài hát')),
+                      );
+                    }
                   }
                 },
-                child: const Text('Select New Song File'),
+                child: const Text('Chọn file bài hát mới'),
               ),
               ElevatedButton(
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
                   if (result != null) {
-                    coverFile = File(result.files.single.path!);
+                    coverFile = result.files.single;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Cover image selected')),
+                      const SnackBar(content: Text('Đã chọn ảnh bìa')),
                     );
                   }
                 },
-                child: const Text('Select New Cover Image'),
+                child: const Text('Chọn ảnh bìa mới'),
               ),
             ],
           ),
@@ -239,13 +299,13 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
           TextButton(
             onPressed: () {
               if (titleController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Title is required')),
+                  const SnackBar(content: Text('Tiêu đề là bắt buộc')),
                 );
                 return;
               }
@@ -257,7 +317,7 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
               updateSong(songData, songFile, coverFile);
               Navigator.pop(context);
             },
-            child: const Text('Save'),
+            child: const Text('Lưu'),
           ),
         ],
       ),
@@ -268,11 +328,12 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(song != null ? song!.title : 'Song Details'),
+        title: Text(song != null ? song!.title : 'Chi tiết bài hát'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: song != null ? showEditSongDialog : null,
+            tooltip: 'Chỉnh sửa',
           ),
           IconButton(
             icon: const Icon(Icons.delete),
@@ -281,34 +342,35 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Confirm Delete'),
-                        content: Text('Are you sure you want to delete ${song!.title}?'),
+                        title: const Text('Xác nhận xóa'),
+                        content: Text('Bạn có chắc chắn muốn xóa bài hát "${song!.title}"?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: const Text('Hủy'),
                           ),
                           TextButton(
                             onPressed: () {
                               deleteSong();
                               Navigator.pop(context);
                             },
-                            child: const Text('Delete'),
+                            child: const Text('Xóa'),
                           ),
                         ],
                       ),
                     );
                   }
                 : null,
+            tooltip: 'Xóa',
           ),
         ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : isRateLimited
-              ? const Center(child: Text('Too many requests. Please try again later.'))
+              ? const Center(child: Text('Quá nhiều yêu cầu. Vui lòng thử lại sau.'))
               : song == null
-                  ? const Center(child: Text('Failed to load song'))
+                  ? const Center(child: Text('Không thể tải bài hát'))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -321,18 +383,48 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
                                 width: 150,
                                 height: 150,
                                 fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => const Icon(
+                                  Icons.image_not_supported,
+                                  size: 150,
+                                ),
                               ),
                             ),
                           const SizedBox(height: 16),
-                          Text('Title: ${song!.title}', style: const TextStyle(fontSize: 16)),
-                          Text('Artist: ${song!.artist ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
-                          Text('Genres: ${song!.genre.join(', ')}', style: const TextStyle(fontSize: 16)),
-                          Text('Duration: ${song!.duration ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
-                          Text('Views: ${song!.views}', style: const TextStyle(fontSize: 16)),
-                          Text('Trending Score: ${song!.trendingScore}', style: const TextStyle(fontSize: 16)),
-                          Text('Created At: ${song!.createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
+                          Center(
+                            child: ElevatedButton.icon(
+                              onPressed: togglePlayPause,
+                              icon: Icon(
+                                isPlaying ? Icons.pause : Icons.play_arrow,
+                                color: Colors.white,
+                              ),
+                              label: Text(
+                                isPlaying ? 'Tạm dừng' : 'Phát nhạc',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0984E3),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text('Tiêu đề: ${song!.title}', style: const TextStyle(fontSize: 16)),
+                          Text('Nghệ sĩ: ${song!.artistName ?? 'Không rõ'}', style: const TextStyle(fontSize: 16)),
+                          Text('Thể loại: ${song!.genreNames.isNotEmpty ? song!.genreNames.join(', ') : 'Không rõ'}',
+                              style: const TextStyle(fontSize: 16)),
+                          Text(
+                            'Thời lượng: ${isLoadingDuration ? 'Đang tải...' : formatDuration(songDuration)}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Text('Lượt xem: ${song!.views}', style: const TextStyle(fontSize: 16)),
+                          Text('Điểm thịnh hành: ${song!.trendingScore}', style: const TextStyle(fontSize: 16)),
+                          Text('Số lượt thích: ${song!.likes.length}', style: const TextStyle(fontSize: 16)),
+                          Text('Ngày tạo: ${song!.createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 24),
-                          const Text('Lyrics:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Text('Lời bài hát:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const Divider(),
                           song!.lyrics != null && song!.lyrics!.isNotEmpty
                               ? SingleChildScrollView(
@@ -345,29 +437,7 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
                                     ),
                                   ),
                                 )
-                              : const Text('No lyrics available', style: TextStyle(fontSize: 14)),
-                          const SizedBox(height: 24),
-                          const Text('Users Who Liked:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const Divider(),
-                          likedUsers.isEmpty
-                              ? const Center(child: Text('No users liked this song'))
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: likedUsers.length,
-                                  itemBuilder: (context, index) {
-                                    final user = likedUsers[index];
-                                    return ListTile(
-                                      leading: user['avatarImgURL'] != null
-                                          ? CircleAvatar(
-                                              backgroundImage: NetworkImage(user['avatarImgURL']),
-                                            )
-                                          : const Icon(Icons.person),
-                                      title: Text('${user['firstName']} ${user['lastName']}'),
-                                      subtitle: Text(user['email']),
-                                    );
-                                  },
-                                ),
+                              : const Text('Không có lời bài hát', style: TextStyle(fontSize: 14)),
                         ],
                       ),
                     ),

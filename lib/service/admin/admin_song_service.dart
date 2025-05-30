@@ -69,13 +69,14 @@ class AdminSongService {
   }
 
   // Lấy danh sách tất cả bài hát
-  Future<List<Map<String, dynamic>>> getAllSongs({
+  Future<Map<String, dynamic>> getAllSongs({
     int page = 1,
     int limit = 10,
     String? title,
     String? likes,
     String? sort,
     String? fields,
+    String? songId, // Thêm tham số songId để lọc bài hát cụ thể
     required String token,
   }) async {
     try {
@@ -86,6 +87,7 @@ class AdminSongService {
       if (likes != null) queryParams['likes'] = likes;
       if (sort != null) queryParams['sort'] = sort;
       if (fields != null) queryParams['fields'] = fields;
+      if (songId != null) queryParams['_id'] = songId; // Thêm điều kiện lọc theo songId
 
       final response = await _apiClient.get(
         'song/',
@@ -96,7 +98,7 @@ class AdminSongService {
 
       if (response['success'] == true) {
         final songsData = response['data'] as List<dynamic>;
-        return songsData.map((json) {
+        final songsList = songsData.map((json) {
           final song = Song.fromJson(json);
           return {
             'song': song,
@@ -107,13 +109,17 @@ class AdminSongService {
                 : 'Không rõ nghệ sĩ',
           };
         }).toList();
+        return {
+          'songs': songsList,
+          'totalCount': response['counts']?.toInt() ?? songsList.length,
+        };
       } else {
         print('Lỗi lấy bài hát: ${response['message']}');
-        return [];
+        return {'songs': [], 'totalCount': 0};
       }
     } catch (e) {
       print('Lỗi trong getAllSongs: $e');
-      return [];
+      return {'songs': [], 'totalCount': 0};
     }
   }
 }
