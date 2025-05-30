@@ -1,7 +1,10 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
 import '../../config/api_client.dart';
 import '../../models/genre.dart';
+import '../../models/song.dart';
 
 class AdminGenreService {
   final ApiClient _apiClient = ApiClient();
@@ -32,27 +35,29 @@ class AdminGenreService {
           final genre = Genre.fromJson(json);
           return {
             'genre': genre,
-            'songCount': (json['songs'] as List<dynamic>?)?.length ?? 0,
+            'songCount': genre.songs.length,
           };
         }).toList();
       } else {
-        print('Lỗi lấy thể loại: ${response['message']}');
-        return [];
+        throw Exception(response['message'] ?? 'Không thể lấy danh sách thể loại');
       }
     } catch (e) {
-      print('Lỗi trong getAllGenres: $e');
-      return [];
+      throw Exception('Lỗi lấy danh sách thể loại: $e');
     }
   }
 
-  // Lấy chi tiết một thể loại
-  Future<Genre> getGenre(String genreId, {String? token}) async {
+  // Lấy chi tiết một thể loại cùng danh sách bài hát
+  Future<Map<String, dynamic>> getGenreDetails(String genreId, {String? token}) async {
     try {
       final response = await _apiClient.get('genre/$genreId', token: token);
       print('Get Genre By ID Response: $response'); // Debug
 
       if (response['success'] == true) {
-        return Genre.fromJson(response['data']);
+        final genre = Genre.fromJson(response['data']);
+        return {
+          'genre': genre,
+          'songs': genre.songs,
+        };
       } else {
         throw Exception(response['message'] ?? 'Không thể lấy thông tin thể loại');
       }
@@ -61,11 +66,68 @@ class AdminGenreService {
     }
   }
 
+  // Lấy danh sách nghệ sĩ thuộc một thể loại (truy vấn gián tiếp qua Song)
+  Future<List<Map<String, dynamic>>> getArtistsInGenre({
+    required String genreId,
+    required String token,
+  }) async {
+    try {
+      // Lấy chi tiết thể loại để có danh sách bài hát
+      final genreData = await getGenreDetails(genreId, token: token);
+      final genre = genreData['genre'] as Genre;
+      final songIds = genre.songs.map((song) => song['id']).toList();
+
+      if (songIds.isEmpty) {
+        return [];
+      }
+
+      // Tạo query parameters với _id là mảng
+      final queryParams = <String, String>{};
+      songIds.asMap().forEach((index, id) {
+        queryParams['_id[$index]'] = id;
+      });
+
+      // Lấy danh sách bài hát để truy xuất artist
+      final response = await _apiClient.get(
+        'song/',
+        queryParameters: queryParams,
+        token: token,
+      );
+      print('Get Songs Response: $response'); // Debug
+
+      if (response['success'] == true) {
+        final songsData = response['data'] as List<dynamic>;
+        // Lấy danh sách artist từ các bài hát
+        final artists = songsData.map((json) {
+          return {
+            'id': json['artist']?['_id']?.toString() ?? '',
+            'title': json['artist']?['title']?.toString() ?? 'Unknown Artist',
+          };
+        }).toList();
+
+        // Loại bỏ trùng lặp artist
+        final uniqueArtists = <String, Map<String, dynamic>>{};
+        for (var artist in artists) {
+          final artistId = artist['id'] as String;
+          if (artistId.isNotEmpty) {
+            uniqueArtists[artistId] = artist;
+          }
+        }
+
+        return uniqueArtists.values.toList();
+      } else {
+        throw Exception(response['message'] ?? 'Không thể lấy danh sách nghệ sĩ');
+      }
+    } catch (e) {
+      throw Exception('Lỗi lấy danh sách nghệ sĩ: $e');
+    }
+  }
+
   // Tạo thể loại mới
   Future<Genre> createGenre({
     required String title,
     required String description,
-    String? coverImagePath,
+    PlatformFile? coverImageFile, // Sử dụng PlatformFile thay vì coverImagePath
     List<String>? songIds,
     String? token,
   }) async {
@@ -79,8 +141,25 @@ class AdminGenreService {
       }
 
       final files = <String, http.MultipartFile>{};
-      if (coverImagePath != null) {
-        files['genre'] = await http.MultipartFile.fromPath('genre', coverImagePath);
+      if (coverImageFile != null) {
+        if (kIsWeb) {
+          // Trên web, sử dụng bytes
+          if (coverImageFile.bytes != null) {
+            files['genre'] = http.MultipartFile.fromBytes(
+              'genre',
+              coverImageFile.bytes!,
+              filename: coverImageFile.name,
+            );
+          }
+        } else {
+          // Trên mobile, sử dụng path
+          if (coverImageFile.path != null) {
+            files['genre'] = await http.MultipartFile.fromPath(
+              'genre',
+              coverImageFile.path!,
+            );
+          }
+        }
       }
 
       final response = await _apiClient.post(
@@ -105,7 +184,7 @@ class AdminGenreService {
     required String genreId,
     String? title,
     String? description,
-    String? coverImagePath,
+    PlatformFile? coverImageFile, // Sử dụng PlatformFile thay vì coverImagePath
     List<String>? songIds,
     String? token,
   }) async {
@@ -116,8 +195,25 @@ class AdminGenreService {
       if (songIds != null) fields['songs'] = songIds.join(',');
 
       final files = <String, http.MultipartFile>{};
-      if (coverImagePath != null) {
-        files['genre'] = await http.MultipartFile.fromPath('genre', coverImagePath);
+      if (coverImageFile != null) {
+        if (kIsWeb) {
+          // Trên web, sử dụng bytes
+          if (coverImageFile.bytes != null) {
+            files['genre'] = http.MultipartFile.fromBytes(
+              'genre',
+              coverImageFile.bytes!,
+              filename: coverImageFile.name,
+            );
+          }
+        } else {
+          // Trên mobile, sử dụng path
+          if (coverImageFile.path != null) {
+            files['genre'] = await http.MultipartFile.fromPath(
+              'genre',
+              coverImageFile.path!,
+            );
+          }
+        }
       }
 
       final response = await _apiClient.put(
@@ -164,7 +260,7 @@ class AdminGenreService {
         'songs': songIds.join(','),
       };
 
-      final response = await _apiClient.post('genre/$genreId', body, token: token);
+      final response = await _apiClient.post('genre/$genreId/songs', body, token: token);
 
       if (response['success'] == true) {
         return Genre.fromJson(response['data']);
@@ -173,6 +269,29 @@ class AdminGenreService {
       }
     } catch (e) {
       throw Exception('Thêm bài hát vào thể loại thất bại: $e');
+    }
+  }
+
+  // Xóa bài hát khỏi thể loại
+  Future<Genre> removeSongFromGenre({
+    required String genreId,
+    required String songId,
+    String? token,
+  }) async {
+    try {
+      final body = {
+        'songs': songId,
+      };
+
+      final response = await _apiClient.post('genre/$genreId/songs/remove', body, token: token);
+
+      if (response['success'] == true) {
+        return Genre.fromJson(response['data']);
+      } else {
+        throw Exception(response['message'] ?? 'Xóa bài hát khỏi thể loại thất bại');
+      }
+    } catch (e) {
+      throw Exception('Xóa bài hát khỏi thể loại thất bại: $e');
     }
   }
 }

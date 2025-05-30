@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:music_player_app/config/validator.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
@@ -8,6 +7,7 @@ import '../../service/admin/admin_user_service.dart';
 import '../../service/admin/admin_song_service.dart';
 import '../../models/user.dart';
 import '../../models/song.dart';
+import '../../config/validator.dart';
 
 class AdminShowUserPage extends StatefulWidget {
   final String userId;
@@ -84,7 +84,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
       if (mounted) {
         setState(() {
           likedSongs = songs;
-          print('Danh sách bài hát yêu thích: $likedSongs'); // Debug
+          print('Danh sách bài hát yêu thích: $likedSongs');
         });
       }
     } catch (e) {
@@ -93,7 +93,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
           SnackBar(content: Text('Lỗi tải danh sách bài hát yêu thích: $e')),
         );
       }
-      print('Lỗi fetchLikedSongs: $e'); // Debug
+      print('Lỗi fetchLikedSongs: $e');
     }
   }
 
@@ -147,7 +147,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
       );
       return;
     } catch (e) {
-      throw e; // Ném lỗi để dialog xử lý
+      throw e;
     }
   }
 
@@ -378,13 +378,12 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-                            // Validation
                             setState(() {
                               firstNameError = Validator.validateRequiredField(firstNameController.text, 'Họ');
                               lastNameError = Validator.validateRequiredField(lastNameController.text, 'Tên');
                               emailError = Validator.validateEmail(emailController.text);
                               mobileError = Validator.validateMobile(mobileController.text);
-                              apiError = null; // Reset API error
+                              apiError = null;
                             });
 
                             if (firstNameError != null || lastNameError != null || emailError != null || mobileError != null) {
@@ -405,7 +404,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                               );
                               Navigator.pop(context);
                               fetchUserDetails();
-                              fetchLikedSongs(); // Làm mới danh sách bài hát
+                              fetchLikedSongs();
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -617,7 +616,6 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Avatar Section
                           Center(
                             child: Container(
                               width: 140,
@@ -651,8 +649,6 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
-                          // User Info Section
                           Card(
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -695,6 +691,17 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                                     valueColor: userData!['user'].isBlocked ? const Color(0xFFE74C3C) : const Color(0xFF00B894),
                                   ),
                                   _buildInfoRow(
+                                    'Tài khoản Premium',
+                                    userData!['user'].isPremium ? 'Có' : 'Không',
+                                    valueColor: userData!['user'].isPremium ? const Color(0xFFFFD700) : const Color(0xFF636E72),
+                                  ),
+                                  if (userData!['user'].isPremium && userData!['user'].premiumExpired != null)
+                                    _buildInfoRow(
+                                      'Hết hạn Premium',
+                                      userData!['user'].premiumExpired!.toLocal().toString().split('.')[0],
+                                      valueColor: const Color(0xFFFFD700),
+                                    ),
+                                  _buildInfoRow(
                                     'Ngày tạo',
                                     userData!['user'].createdAt?.toLocal().toString().split('.')[0] ?? 'N/A',
                                   ),
@@ -703,8 +710,6 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                             ),
                           ),
                           const SizedBox(height: 24),
-
-                          // Liked Songs Section
                           Card(
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -833,7 +838,7 @@ class AdminShowUserPageState extends State<AdminShowUserPage> {
                                                 context,
                                                 '/admin/song/:sid',
                                                 arguments: song['song'].id,
-                                              ).then((_) => fetchLikedSongs()); // Làm mới khi quay lại
+                                              ).then((_) => fetchLikedSongs());
                                             },
                                           ),
                                         );

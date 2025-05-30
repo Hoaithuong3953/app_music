@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+import 'dart:io' show File, Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../providers/user_provider.dart';
 import '../../service/admin/admin_genre_service.dart';
 import '../../widgets/client/genre_card.dart';
@@ -59,15 +60,17 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
     });
 
     try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
       final fetchedGenres = await _genreService.getAllGenres(
         page: currentPage,
         limit: limit,
         title: _searchController.text.isNotEmpty ? _searchController.text : null,
+        token: userProvider.user?.token,
       );
       setState(() {
         genres = fetchedGenres;
         filteredGenres = fetchedGenres;
-        totalCount = fetchedGenres.length; // Cần cập nhật nếu API trả về counts
+        totalCount = fetchedGenres.length;
         isLoading = false;
       });
     } catch (e) {
@@ -78,13 +81,13 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
     }
   }
 
-  Future<void> createGenre(Map<String, dynamic> genreData, File? coverFile) async {
+  Future<void> createGenre(Map<String, dynamic> genreData, PlatformFile? coverFile) async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       await _genreService.createGenre(
         title: genreData['title'],
         description: '',
-        coverImagePath: coverFile?.path,
+        coverImageFile: coverFile, // Truyền PlatformFile thay vì path
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
@@ -98,14 +101,14 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
     }
   }
 
-  Future<void> updateGenre(String genreId, Map<String, dynamic> genreData, File? coverFile) async {
+  Future<void> updateGenre(String genreId, Map<String, dynamic> genreData, PlatformFile? coverFile) async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       await _genreService.updateGenre(
         genreId: genreId,
         title: genreData['title'],
         description: '',
-        coverImagePath: coverFile?.path,
+        coverImageFile: coverFile, // Truyền PlatformFile thay vì path
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
@@ -139,7 +142,7 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
 
   void showCreateGenreDialog() {
     final titleController = TextEditingController();
-    File? coverFile;
+    PlatformFile? coverFile;
 
     showDialog(
       context: context,
@@ -157,7 +160,7 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
                   if (result != null) {
-                    coverFile = File(result.files.single.path!);
+                    coverFile = result.files.single; // Lưu PlatformFile
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Đã chọn ảnh bìa')),
                     );
@@ -196,7 +199,7 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
 
   void showEditGenreDialog(Genre genre) {
     final titleController = TextEditingController(text: genre.title);
-    File? coverFile;
+    PlatformFile? coverFile;
 
     showDialog(
       context: context,
@@ -214,7 +217,7 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
                   if (result != null) {
-                    coverFile = File(result.files.single.path!);
+                    coverFile = result.files.single; // Lưu PlatformFile
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Đã chọn ảnh bìa mới')),
                     );
@@ -304,7 +307,9 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
             ),
             Expanded(
               child: isLoading
-                  ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3))))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3))))
                   : errorMessage != null
                       ? Center(child: Text('Lỗi: $errorMessage', style: const TextStyle(color: Colors.red)))
                       : filteredGenres.isEmpty
@@ -313,7 +318,8 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                               children: [
                                 Icon(Icons.category, size: 64, color: Colors.grey[400]),
                                 const SizedBox(height: 16),
-                                const Text('Không có thể loại nào', style: TextStyle(fontSize: 18, color: Color(0xFF636E72))),
+                                const Text('Không có thể loại nào',
+                                    style: TextStyle(fontSize: 18, color: Color(0xFF636E72))),
                               ],
                             )
                           : ListView.separated(
@@ -327,79 +333,101 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                    child: Row(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: (genre.coverImage.isNotEmpty)
-                                              ? Image.network(
-                                                  genre.coverImage,
-                                                  width: 56,
-                                                  height: 56,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                  child: InkWell(
+                                    onTap: () {
+                                      if (genre.id.isNotEmpty) {
+                                        print('Navigating to genre with ID: ${genre.id}');
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/admin/genre/:gid',
+                                          arguments: genre.id,
+                                        );
+                                      } else {
+                                        print('Invalid genre ID');
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Invalid genre ID')),
+                                        );
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: (genre.coverImage.isNotEmpty)
+                                                ? Image.network(
+                                                    genre.coverImage,
+                                                    width: 56,
+                                                    height: 56,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) => Container(
+                                                      width: 56,
+                                                      height: 56,
+                                                      color: Colors.grey[200],
+                                                      child: const Icon(Icons.category),
+                                                    ),
+                                                  )
+                                                : Container(
                                                     width: 56,
                                                     height: 56,
                                                     color: Colors.grey[200],
                                                     child: const Icon(Icons.category),
                                                   ),
-                                                )
-                                              : Container(
-                                                  width: 56,
-                                                  height: 56,
-                                                  color: Colors.grey[200],
-                                                  child: const Icon(Icons.category),
-                                                ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                genre.title,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
-                                                  color: Color(0xFF2D3436),
-                                                ),
-                                              ),
-                                            ],
                                           ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
-                                          onPressed: () => showEditGenreDialog(genre),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
-                                          onPressed: () {
-                                            showDialog(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                                title: const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
-                                                content: Text('Bạn có chắc chắn muốn xóa thể loại "${genre.title}"?'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context),
-                                                    child: const Text('Hủy'),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  genre.title,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: Color(0xFF2D3436),
                                                   ),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      deleteGenre(genre.id);
-                                                      Navigator.pop(context);
-                                                    },
-                                                    child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
+                                            onPressed: () => showEditGenreDialog(genre),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(16)),
+                                                  title: const Text('Xác nhận xóa',
+                                                      style: TextStyle(fontWeight: FontWeight.bold)),
+                                                  content:
+                                                      Text('Bạn có chắc chắn muốn xóa thể loại "${genre.title}"?'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(context),
+                                                      child: const Text('Hủy'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        deleteGenre(genre.id);
+                                                        Navigator.pop(context);
+                                                      },
+                                                      child:
+                                                          const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );

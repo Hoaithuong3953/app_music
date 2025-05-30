@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../config/api_client.dart';
 import '../../service/admin/admin_genre_service.dart';
 import '../../service/client/song_service.dart';
 import '../../models/genre.dart';
@@ -22,10 +19,11 @@ class AdminShowGenrePage extends StatefulWidget {
 class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
   Genre? genre;
   List<Map<String, dynamic>> songs = [];
+  List<Map<String, dynamic>> artists = [];
   bool isLoading = true;
+  String? errorMessage;
   final AdminGenreService _genreService = AdminGenreService();
   final SongService _songService = SongService();
-  final ApiClient _apiClient = ApiClient();
 
   @override
   void initState() {
@@ -34,40 +32,35 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
   }
 
   Future<void> fetchGenreDetails() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
     try {
-      final fetchedGenre = await _genreService.getGenre(widget.genreId);
-      List<Map<String, dynamic>> fetchedSongs = [];
-      if (fetchedGenre.songs.isNotEmpty) {
-        final validSongIds = fetchedGenre.songs.where((id) => id.isNotEmpty).toList();
-        if (validSongIds.isNotEmpty) {
-          final response = await _apiClient.get(
-            'song/',
-            queryParameters: {'_id': validSongIds.join(',')},
-            token: Provider.of<UserProvider>(context, listen: false).user?.token,
-          );
-          if (response['success'] == true) {
-            final songsData = response['data'] as List<dynamic>;
-            fetchedSongs = songsData.map((json) {
-              final song = Song.fromJson(json);
-              return {
-                'song': song,
-                'artistName': json['artist']?['title']?.toString() ?? 'Unknown Artist',
-              };
-            }).toList();
-          }
-        }
-      }
-      setState(() {
-        genre = fetchedGenre;
-        songs = fetchedSongs;
-        isLoading = false;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final token = userProvider.user?.token ?? '';
+      print('Fetching genre with ID: ${widget.genreId}, Token: $token'); // Debug
+      final data = await _genreService.getGenreDetails(
+        widget.genreId,
+        token: token,
+      );
+      final fetchedArtists = await _genreService.getArtistsInGenre(
+        genreId: widget.genreId,
+        token: token,
       );
       setState(() {
+        genre = data['genre'];
+        songs = data['songs'];
+        artists = fetchedArtists;
         isLoading = false;
+        print('Fetched genre: ${genre?.title}, Songs: ${songs.length}, Artists: ${artists.length}'); // Debug
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+        print('Error fetching genre: $e'); // Debug
       });
     }
   }
@@ -163,10 +156,9 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
   Future<void> removeSongFromGenre(String songId) async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final updatedSongIds = genre!.songs.where((id) => id != songId).toList();
-      await _genreService.updateGenre(
+      await _genreService.removeSongFromGenre(
         genreId: widget.genreId,
-        songIds: updatedSongIds,
+        songId: songId,
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
@@ -182,8 +174,6 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(genre != null ? genre!.title : 'Genre Details'),
@@ -223,85 +213,134 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : genre == null
-              ? const Center(child: Text('Failed to load genre'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (genre!.coverImage != null)
-                        Center(
-                          child: Image.network(
-                            genre!.coverImage,
-                            width: 150,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      Text('Title: ${genre!.title}', style: const TextStyle(fontSize: 16)),
-                      Text('Description: ${genre!.description}', style: const TextStyle(fontSize: 16)),
-                      Text('Created At: ${genre!.createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
-                      const SizedBox(height: 24),
-                      const Text('Songs:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Divider(),
-                      songs.isEmpty
-                          ? const Center(child: Text('No songs in this genre'))
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: songs.length,
-                              itemBuilder: (context, index) {
-                                final entry = songs[index];
-                                final song = entry['song'] as Song;
-                                final artistName = entry['artistName'] as String;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: SongTile(
-                                        song: song,
-                                        artistName: artistName,
-                                        index: index + 1,
-                                        onTap: () => Navigator.pushNamed(
-                                          context,
-                                          '/admin/song/:sid',
-                                          arguments: song.id,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Confirm Remove'),
-                                            content: Text('Are you sure you want to remove ${song.title} from this genre?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  removeSongFromGenre(song.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Remove'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
+          : errorMessage != null
+              ? Center(child: Text('Error: $errorMessage'))
+              : genre == null
+                  ? const Center(child: Text('Failed to load genre'))
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (genre!.coverImage.isNotEmpty)
+                            Center(
+                              child: Image.network(
+                                genre!.coverImage,
+                                width: 150,
+                                height: 150,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => const Icon(
+                                  Icons.image_not_supported,
+                                  size: 150,
+                                ),
+                              ),
                             ),
-                    ],
-                  ),
-                ),
+                          const SizedBox(height: 16),
+                          Text('Title: ${genre!.title}', style: const TextStyle(fontSize: 16)),
+                          Text('Description: ${genre!.description}',
+                              style: const TextStyle(fontSize: 16)),
+                          Text('Created At: ${genre!.createdAt.toLocal()}',
+                              style: const TextStyle(fontSize: 16)),
+                          const SizedBox(height: 24),
+                          const Text('Artists:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Divider(),
+                          artists.isEmpty
+                              ? const Center(child: Text('No artists in this genre'))
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: artists.length,
+                                  itemBuilder: (context, index) {
+                                    final artist = artists[index];
+                                    return ListTile(
+                                      title: Text(artist['title'] ?? 'Unknown Artist'),
+                                      onTap: () {
+                                        // Điều hướng đến trang chi tiết nghệ sĩ nếu cần
+                                      },
+                                    );
+                                  },
+                                ),
+                          const SizedBox(height: 24),
+                          const Text('Songs:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Divider(),
+                          songs.isEmpty
+                              ? const Center(child: Text('No songs in this genre'))
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: songs.length,
+                                  itemBuilder: (context, index) {
+                                    final song = songs[index];
+                                    return Row(
+                                      children: [
+                                        Expanded(
+                                          child: SongTile(
+                                            song: Song(
+                                              id: song['id'] ?? '',
+                                              title: song['title'] ?? '',
+                                              description: '',
+                                              lyrics: '',
+                                              artist: song['artistName'] ?? 'Unknown Artist',
+                                              album: '',
+                                              genre: [],
+                                              duration: '',
+                                              slugify: '',
+                                              url: '',
+                                              coverImage: '',
+                                              views: 0,
+                                              dailyViews: 0,
+                                              weeklyViews: 0,
+                                              trendingScore: 0,
+                                              lastReset: DateTime.now(),
+                                              likes: [],
+                                              dislikes: [],
+                                              comments: [],
+                                              isPublic: true,
+                                              createdAt: DateTime.now(),
+                                              updatedAt: DateTime.now(),
+                                            ),
+                                            artistName: song['artistName'] ?? 'Unknown Artist',
+                                            index: index + 1,
+                                            onTap: () => Navigator.pushNamed(
+                                              context,
+                                              '/admin/song/:sid',
+                                              arguments: song['id'],
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete, color: Colors.red),
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text('Confirm Remove'),
+                                                content: Text(
+                                                    'Are you sure you want to remove ${song['title']} from this genre?'),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      removeSongFromGenre(song['id'] ?? '');
+                                                      Navigator.pop(context);
+                                                    },
+                                                    child: const Text('Remove'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                        ],
+                      ),
+                    ),
     );
   }
 }

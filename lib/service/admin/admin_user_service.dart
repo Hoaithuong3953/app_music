@@ -14,6 +14,7 @@ class AdminUserService {
     String? searchQuery,
     String? sort,
     String? fields,
+    bool? isPremium, // Thêm tham số lọc Premium
     required String token,
   }) async {
     try {
@@ -27,6 +28,7 @@ class AdminUserService {
       }
       if (sort != null) queryParams['sort'] = sort;
       if (fields != null) queryParams['fields'] = fields;
+      if (isPremium != null) queryParams['isPremium'] = isPremium.toString(); // Thêm query isPremium
 
       final response = await _apiClient.get('user/', queryParameters: queryParams, token: token);
 
