@@ -55,13 +55,15 @@ class _MainPageState extends State<MainPage> {
                 initialRoute: '/home',
                 onGenerateRoute: (settings) {
                   Widget page;
-                  // Kiểm tra settings.name không null trước khi sử dụng
                   final routeName = settings.name;
                   if (routeName != null && _fullScreenRoutes.contains(routeName)) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      Navigator.of(context).pushNamed(routeName, arguments: settings.arguments);
-                    });
-                    return null; // Trả về null để không xử lý trong Navigator con
+                    // Trả về một Scaffold rỗng để tránh lỗi
+                    return MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        body: Center(child: Text('Loading...')),
+                      ),
+                      settings: settings,
+                    );
                   }
 
                   switch (routeName) {

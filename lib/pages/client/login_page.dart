@@ -255,15 +255,22 @@ class _LoginPageState extends State<LoginPage> {
                             fontSize: screenHeight * 0.02,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacementNamed(context, '/register');
-                          },
-                          child: Text(
-                            "Sign up",
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontSize: screenHeight * 0.02,
-                              color: Theme.of(context).highlightColor,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pushReplacementNamed(context, '/register');
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              child: Text(
+                                "Sign up",
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  fontSize: screenHeight * 0.02,
+                                  color: Theme.of(context).highlightColor,
+                                ),
+                              ),
                             ),
                           ),
                         ),

@@ -18,6 +18,11 @@ class MiniPlayer extends StatelessWidget {
         final currentSong = songProvider.currentSong;
         final isPlaying = playbackProvider.isPlaying;
 
+        // Return empty container if no song is playing
+        if (currentSong == null) {
+          return const SizedBox.shrink();
+        }
+
         return GestureDetector(
           onTap: () {
             Navigator.of(context).push(
@@ -51,10 +56,10 @@ class MiniPlayer extends StatelessWidget {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                    backgroundImage: currentSong?.coverImage != null ? NetworkImage(currentSong!.coverImage!) : null,
-                    child: currentSong?.coverImage == null
+                    backgroundImage: currentSong.coverImage != null ? NetworkImage(currentSong.coverImage!) : null,
+                    child: currentSong.coverImage == null
                         ? Text(
-                      currentSong != null && currentSong.title.isNotEmpty
+                      currentSong.title.isNotEmpty
                           ? currentSong.title[0].toUpperCase()
                           : 'S',
                       style: TextStyle(color: Theme.of(context).highlightColor),
@@ -72,10 +77,10 @@ class MiniPlayer extends StatelessWidget {
                           physics: const ClampingScrollPhysics(),
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              minWidth: screenWidth * 0.4, // Đảm bảo chiều rộng tối thiểu để scroll
+                              minWidth: screenWidth * 0.4,
                             ),
                             child: Text(
-                              currentSong != null ? currentSong.title : 'No song playing',
+                              currentSong.title,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -85,14 +90,12 @@ class MiniPlayer extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          currentSong != null
-                              ? (currentSong.url != null && currentSong.url!.isNotEmpty
+                          currentSong.url != null && currentSong.url!.isNotEmpty
                               ? (currentSong.artist ?? 'Unknown Artist')
-                              : 'URL is missing')
-                              : 'Select a song to play',
+                              : 'URL is missing',
                           style: TextStyle(
                             fontSize: 12,
-                            color: currentSong != null && (currentSong.url == null || currentSong.url!.isEmpty)
+                            color: currentSong.url == null || currentSong.url!.isEmpty
                                 ? Colors.red
                                 : Colors.grey[700],
                           ),
@@ -102,53 +105,51 @@ class MiniPlayer extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      if (currentSong != null) ...[
-                        IconButton(
-                          icon: Icon(
-                            Icons.skip_previous,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                          onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
-                              ? () {
-                            songProvider.previousSong();
-                            final newSong = songProvider.currentSong;
-                            if (newSong != null) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                Provider.of<AudioHandlerProvider>(context, listen: false).playSong(newSong);
-                              });
-                            }
-                          }
-                              : null,
+                      IconButton(
+                        icon: Icon(
+                          Icons.skip_previous,
+                          color: Theme.of(context).colorScheme.secondary,
                         ),
-                        IconButton(
-                          icon: Icon(
-                            isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                          onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
-                              ? () {
-                            Provider.of<AudioHandlerProvider>(context, listen: false).playPause();
+                        onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
+                            ? () {
+                          songProvider.previousSong();
+                          final newSong = songProvider.currentSong;
+                          if (newSong != null) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              Provider.of<AudioHandlerProvider>(context, listen: false).playSong(newSong);
+                            });
                           }
-                              : null,
+                        }
+                            : null,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Theme.of(context).colorScheme.secondary,
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.skip_next,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                          onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
-                              ? () {
-                            songProvider.nextSong();
-                            final newSong = songProvider.currentSong;
-                            if (newSong != null) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                Provider.of<AudioHandlerProvider>(context, listen: false).playSong(newSong);
-                              });
-                            }
+                        onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
+                            ? () {
+                          Provider.of<AudioHandlerProvider>(context, listen: false).playPause();
+                        }
+                            : null,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.skip_next,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                        onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
+                            ? () {
+                          songProvider.nextSong();
+                          final newSong = songProvider.currentSong;
+                          if (newSong != null) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              Provider.of<AudioHandlerProvider>(context, listen: false).playSong(newSong);
+                            });
                           }
-                              : null,
-                        ),
-                      ],
+                        }
+                            : null,
+                      ),
                     ],
                   ),
                 ],

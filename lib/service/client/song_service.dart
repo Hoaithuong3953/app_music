@@ -1,67 +1,77 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'package:http_parser/http_parser.dart';
+import 'dart:io';
 import '../../config/api_client.dart';
 import '../../models/song.dart';
 
 class SongService {
   final ApiClient _apiClient = ApiClient();
+  static const int maxRetries = 3;
+  static const Duration retryDelay = Duration(seconds: 1);
 
   // Lấy danh sách tất cả bài hát với tìm kiếm theo title hoặc likes
   Future<List<Map<String, dynamic>>> getAllSongs({
-    int page = 1,
-    int limit = 10,
-    String? title,
-    String? likes,
-    String? sort,
-    String? fields,
-  }) async {
-    const maxRetries = 3;
-    const retryDelay = Duration(seconds: 1);
+  int page = 1,
+  int limit = 10,
+  String? title,
+  String? likes,
+  String? sort,
+  String? fields,
+}) async {
+  const maxRetries = 5; // Tăng số lần thử
+  const retryDelay = Duration(seconds: 2);
 
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        final queryParams = <String, String>{};
-        queryParams['page'] = page.toString();
-        queryParams['limit'] = limit.toString();
-        if (sort != null) queryParams['sort'] = sort;
-        if (fields != null) queryParams['fields'] = fields;
-        if (title != null) queryParams['title'] = title;
-        if (likes != null) queryParams['likes'] = likes; // Thêm tham số likes
+  for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      final queryParams = <String, String>{};
+      queryParams['page'] = page.toString();
+      queryParams['limit'] = limit.toString();
+      if (sort != null) queryParams['sort'] = sort;
+      if (fields != null) queryParams['fields'] = fields;
+      if (title != null) queryParams['title'] = title;
+      if (likes != null) queryParams['likes'] = likes;
 
-        final response = await _apiClient.get('song/', queryParameters: queryParams);
+      final response = await _apiClient.get('song/', queryParameters: queryParams);
 
-        if (response['success'] == true) {
-          if (response['data'] is List<dynamic>) {
-            final songsData = response['data'] as List<dynamic>;
-            return songsData.map((json) {
-              return {
-                'song': Song.fromJson(json),
-                'artistName': json['artist'] != null
-                    ? (json['artist']['title']?.toString() ?? 'Unknown Artist')
-                    : 'Unknown Artist',
-              };
-            }).toList();
-          } else {
-            throw Exception('Invalid data format: data is not a list');
-          }
+      if (response['success'] == true) {
+        if (response['data'] is List<dynamic>) {
+          final songsData = response['data'] as List<dynamic>;
+          return songsData.map((json) {
+            return {
+              'song': Song.fromJson(json),
+              'artistName': json['artist'] != null
+                  ? (json['artist']['title']?.toString() ?? 'Unknown Artist')
+                  : 'Unknown Artist',
+            };
+          }).toList();
         } else {
-          throw Exception(response['message'] ?? 'Failed to fetch songs');
+          throw Exception('Invalid data format: data is not a list');
         }
-      } catch (e) {
-        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
-          print('Rate limit hit for getAllSongs, retrying ($attempt/$maxRetries)...');
-          await Future.delayed(retryDelay);
-          continue;
-        }
-        print('Error in getAllSongs: $e');
-        throw Exception('Failed to fetch songs: $e');
+      } else {
+        throw Exception(response['message'] ?? 'Failed to fetch songs');
+      }
+    } catch (e) {
+      print('Error in getAllSongs (attempt $attempt/$maxRetries): $e');
+      if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+        print('Rate limit hit for getAllSongs, retrying ($attempt/$maxRetries)...');
+        await Future.delayed(retryDelay);
+        continue;
+      }
+      if (e is TimeoutException && attempt < maxRetries) {
+        print('Timeout for getAllSongs, retrying ($attempt/$maxRetries)...');
+        await Future.delayed(retryDelay);
+        continue;
+      }
+      if (attempt == maxRetries) {
+        throw Exception('Failed to fetch songs after $maxRetries attempts: $e');
       }
     }
-
-    throw Exception('Failed to fetch songs after $maxRetries attempts');
   }
 
+  throw Exception('Failed to fetch songs after $maxRetries attempts');
+}
   Future<Song> getSong(String songId) async {
     const maxRetries = 3;
     const retryDelay = Duration(seconds: 1);
@@ -71,9 +81,17 @@ class SongService {
         final response = await _apiClient.get('song/$songId');
 
         if (response['success'] == true) {
-          if (response['data'] is Map<String, dynamic>) {
-            return Song.fromJson(response['data']);
+          final data = response['data'];
+          if (data is Map<String, dynamic>) {
+            return Song.fromJson(data);
           } else {
+            // Log dữ liệu thực tế để debug
+            print('Invalid data format for song/$songId: ${data.runtimeType} - $data');
+            // Nếu data là List và có phần tử đầu là Map, lấy phần tử đầu tiên
+            if (data is List && data.isNotEmpty && data.first is Map<String, dynamic>) {
+              print('Fallback: using first element of list as song data');
+              return Song.fromJson(data.first as Map<String, dynamic>);
+            }
             throw Exception('Invalid data format: data is not a map');
           }
         } else {
@@ -85,6 +103,7 @@ class SongService {
           await Future.delayed(retryDelay);
           continue;
         }
+        print('Error in getSong($songId): $e');
         throw Exception('Failed to get song: $e');
       }
     }
@@ -95,7 +114,6 @@ class SongService {
   Future<List<Song>> getSongs(List<String> songIds) async {
     List<Song> songs = [];
 
-    // Sử dụng Future.wait để gọi đồng thời, nhưng vẫn giữ cơ chế retry trong getSong
     final futures = songIds.map((id) async {
       try {
         return await getSong(id);
@@ -131,5 +149,272 @@ class SongService {
     songs = await Future.wait(futures, eagerError: true);
 
     return songs;
+  }
+
+  // Like một bài hát
+  Future<Song> likeSong(String songId, String token) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.put('song/like/$songId', {}, token: token);
+
+        if (response['success'] == true) {
+          return Song.fromJson(response['data']);
+        } else {
+          throw Exception(response['message'] ?? 'Failed to like song');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for likeSong, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to like song after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to like song after $maxRetries attempts');
+  }
+
+  // Dislike một bài hát
+  Future<Song> dislikeSong(String songId, String token) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.put('song/dislike/$songId', {}, token: token);
+
+        if (response['success'] == true) {
+          return Song.fromJson(response['data']);
+        } else {
+          throw Exception(response['message'] ?? 'Failed to dislike song');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for dislikeSong, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to dislike song after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to dislike song after $maxRetries attempts');
+  }
+
+  // Upload file nhạc mới
+  Future<Song> uploadMusic(String songId, File musicFile, String token) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('${_apiClient.baseUrl}/song/$songId/upload'),
+        );
+
+        request.headers.addAll({
+          'Authorization': 'Bearer $token',
+        });
+
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'song',
+            musicFile.path,
+            contentType: MediaType('audio', 'mpeg'),
+          ),
+        );
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          return Song.fromJson(responseData['updatedSong']);
+        } else {
+          throw Exception(responseData['message'] ?? 'Failed to upload music');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for uploadMusic, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to upload music after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to upload music after $maxRetries attempts');
+  }
+
+  // Tạo bài hát mới và upload
+  Future<Song> createAndUploadSong({
+    required String title,
+    required File songFile,
+    File? coverFile,
+    String? description,
+    String? lyrics,
+    String? artistId,
+    String? albumId,
+    List<String>? genreIds,
+    required String token,
+  }) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('${_apiClient.baseUrl}/song/'),
+        );
+
+        request.headers.addAll({
+          'Authorization': 'Bearer $token',
+        });
+
+        // Add text fields
+        request.fields['title'] = title;
+        if (description != null) request.fields['description'] = description;
+        if (lyrics != null) request.fields['lyrics'] = lyrics;
+        if (artistId != null) request.fields['artist'] = artistId;
+        if (albumId != null) request.fields['album'] = albumId;
+        if (genreIds != null) request.fields['genre'] = genreIds.join(',');
+
+        // Add files
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'song',
+            songFile.path,
+            contentType: MediaType('audio', 'mpeg'),
+          ),
+        );
+
+        if (coverFile != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'cover',
+              coverFile.path,
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+        }
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          return Song.fromJson(responseData['data']);
+        } else {
+          throw Exception(responseData['message'] ?? 'Failed to create song');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for createAndUploadSong, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to create song after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to create song after $maxRetries attempts');
+  }
+
+  // Cập nhật thông tin bài hát
+  Future<Song> updateSong({
+    required String songId,
+    String? title,
+    String? description,
+    String? lyrics,
+    String? artistId,
+    String? albumId,
+    List<String>? genreIds,
+    File? songFile,
+    File? coverFile,
+    required String token,
+  }) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final request = http.MultipartRequest(
+          'PUT',
+          Uri.parse('${_apiClient.baseUrl}/song/$songId'),
+        );
+
+        request.headers.addAll({
+          'Authorization': 'Bearer $token',
+        });
+
+        // Add text fields
+        if (title != null) request.fields['title'] = title;
+        if (description != null) request.fields['description'] = description;
+        if (lyrics != null) request.fields['lyrics'] = lyrics;
+        if (artistId != null) request.fields['artist'] = artistId;
+        if (albumId != null) request.fields['album'] = albumId;
+        if (genreIds != null) request.fields['genre'] = genreIds.join(',');
+
+        // Add files
+        if (songFile != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'song',
+              songFile.path,
+              contentType: MediaType('audio', 'mpeg'),
+            ),
+          );
+        }
+
+        if (coverFile != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'cover',
+              coverFile.path,
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+        }
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          return Song.fromJson(responseData['data']);
+        } else {
+          throw Exception(responseData['message'] ?? 'Failed to update song');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for updateSong, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to update song after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to update song after $maxRetries attempts');
+  }
+
+  // Xóa bài hát
+  Future<void> deleteSong(String songId, String token) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.delete('song/$songId', token: token);
+
+        if (response['success'] != true) {
+          throw Exception(response['message'] ?? 'Failed to delete song');
+        }
+        return;
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for deleteSong, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to delete song after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to delete song after $maxRetries attempts');
   }
 }

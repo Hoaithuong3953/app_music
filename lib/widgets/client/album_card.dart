@@ -3,7 +3,7 @@ import '../../models/album.dart';
 
 class AlbumCard extends StatelessWidget {
   final Album album;
-  final String? artistName; // Thêm thuộc tính để truyền tên nghệ sĩ từ bên ngoài
+  final String? artistName;
 
   const AlbumCard({required this.album, this.artistName, super.key});
 
@@ -14,7 +14,7 @@ class AlbumCard extends StatelessWidget {
 
     final cardWidth = screenWidth * 0.35;
     final imageSize = cardWidth;
-    final textHeight = screenHeight * 0.05;
+    final textHeight = screenHeight * 0.07; // Tăng chiều cao để chứa font lớn hơn
     final cardHeight = imageSize + textHeight + (screenHeight * 0.01);
 
     return Card(
@@ -23,12 +23,15 @@ class AlbumCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
+      clipBehavior: Clip.hardEdge,
       child: Container(
         width: cardWidth,
         height: cardHeight,
+        padding: EdgeInsets.zero,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
+            // Ảnh bìa album
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: Container(
@@ -37,40 +40,49 @@ class AlbumCard extends StatelessWidget {
                 color: Colors.grey[300],
                 child: album.coverImageURL != null
                     ? Image.network(
-                  album.coverImageURL!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.album,
-                    size: imageSize * 0.5,
-                    color: Theme.of(context).highlightColor,
-                  ),
-                )
+                        album.coverImageURL!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.album,
+                          size: imageSize * 0.5,
+                          color: Theme.of(context).highlightColor,
+                        ),
+                      )
                     : Icon(
-                  Icons.album,
-                  size: imageSize * 0.5,
-                  color: Theme.of(context).highlightColor,
-                ),
+                        Icons.album,
+                        size: imageSize * 0.5,
+                        color: Theme.of(context).highlightColor,
+                      ),
               ),
             ),
             SizedBox(height: screenHeight * 0.01),
-            Text(
-              album.title,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontSize: screenHeight * 0.02,
-                fontWeight: FontWeight.w500,
+            // Phần văn bản (tiêu đề và tên nghệ sĩ)
+            SizedBox(
+              height: textHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    album.title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontSize: screenHeight * 0.022, // Tăng kích thước font
+                          fontWeight: FontWeight.w500,
+                        ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    artistName ?? 'Unknown Artist',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: screenHeight * 0.018, // Tăng kích thước font
+                        ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              artistName ?? 'Unknown Artist', // Sử dụng artistName truyền từ ngoài
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: screenHeight * 0.018,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

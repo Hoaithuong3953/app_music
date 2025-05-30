@@ -7,25 +7,43 @@ import '../../models/user.dart';
 
 class UserService {
   final ApiClient _apiClient = ApiClient();
+  static const int maxRetries = 3;
+  static const Duration retryDelay = Duration(seconds: 1);
 
   Future<User> login(String email, String password) async {
-    try {
-      final response = await _apiClient.post('user/login', {
-        'email': email,
-        'password': password,
-      });
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.post('user/login', {
+          'email': email,
+          'password': password,
+        });
 
-      if (response['success'] == true) {
-        final userData = response['userData'] as Map<String, dynamic>;
-        userData['token'] = response['accessToken'] as String;
-        final user = User.fromJson(userData);
-        return user;
-      } else {
-        throw Exception(response['message'] ?? 'Login failed');
+        if (response['success'] == true) {
+          final userData = response['userData'] as Map<String, dynamic>;
+          userData['token'] = response['accessToken'] as String;
+          final user = User.fromJson(userData);
+          
+          // Lưu token vào SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('accessToken', response['accessToken']);
+          await prefs.setString('user_data', jsonEncode(userData));
+          
+          return user;
+        } else {
+          throw Exception(response['message'] ?? 'Login failed');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for login, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Login failed after $maxRetries attempts: $e');
+        }
       }
-    } catch (e) {
-      throw Exception('Login failed: $e');
     }
+    throw Exception('Login failed after $maxRetries attempts');
   }
 
   Future<User> register({
@@ -35,23 +53,33 @@ class UserService {
     required String mobile,
     required String password,
   }) async {
-    try {
-      final response = await _apiClient.post('user/register', {
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'mobile': mobile,
-        'password': password,
-      });
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.post('user/register', {
+          'firstName': firstName,
+          'lastName': lastName,
+          'email': email,
+          'mobile': mobile,
+          'password': password,
+        });
 
-      if (response['success'] == true) {
-        return await login(email, password);
-      } else {
-        throw Exception(response['message'] ?? 'Registration failed');
+        if (response['success'] == true) {
+          return await login(email, password);
+        } else {
+          throw Exception(response['message'] ?? 'Registration failed');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for register, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Registration failed after $maxRetries attempts: $e');
+        }
       }
-    } catch (e) {
-      throw Exception('Registration failed: $e');
     }
+    throw Exception('Registration failed after $maxRetries attempts');
   }
 
   Future<User?> getCurrentUser() async {
@@ -91,7 +119,7 @@ class UserService {
     String? email,
     String? mobile,
     String? password,
-    String? avatarImgURL, // Thêm tham số avatarImgURL để hỗ trợ xoá avatar
+    String? avatarImgURL,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -107,7 +135,7 @@ class UserService {
       if (email != null) body['email'] = email;
       if (mobile != null) body['mobile'] = mobile;
       if (password != null) body['password'] = password;
-      if (avatarImgURL != null) body['avatarImgURL'] = avatarImgURL; // Gửi avatarImgURL (có thể là null để xoá)
+      if (avatarImgURL != null) body['avatarImgURL'] = avatarImgURL;
 
       final response = await _apiClient.put('user/current', body, token: accessToken);
 
@@ -140,15 +168,15 @@ class UserService {
       var request = http.MultipartRequest('PUT', Uri.parse('${_apiClient.baseUrl}/user/current'));
       request.headers['Authorization'] = 'Bearer $accessToken';
 
-      // Thêm email của người dùng vào req.body dưới dạng title
       request.fields['title'] = user.email;
 
-      // Gửi file với filename hợp lệ
-      request.files.add(await http.MultipartFile.fromPath(
-        'avatar',
-        avatar.path,
-        filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      ));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'avatar',
+          avatar.path,
+          filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      );
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
@@ -170,7 +198,6 @@ class UserService {
     }
   }
 
-  // Phương thức mới để xoá avatar
   Future<User> removeAvatar() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -181,7 +208,7 @@ class UserService {
       }
 
       final body = <String, dynamic>{
-        'avatarImgURL': null, // Gửi avatarImgURL là null để xoá
+        'avatarImgURL': null,
       };
 
       final response = await _apiClient.put('user/current', body, token: accessToken);
@@ -198,15 +225,145 @@ class UserService {
     }
   }
 
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('accessToken');
-    await prefs.remove('user_data');
+  Future<void> forgotPassword(String email) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.post('user/forgot-password', {
+          'email': email,
+        });
 
-    try {
-      await _apiClient.get('user/logout');
-    } catch (e) {
-      print('Error calling logout API: $e');
+        if (response['success'] != true) {
+          throw Exception(response['message'] ?? 'Failed to send OTP');
+        }
+        return;
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for forgotPassword, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to send OTP after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to send OTP after $maxRetries attempts');
+  }
+
+  Future<void> resetPassword(String password, String otp) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.post('user/reset-password', {
+          'password': password,
+          'otp': otp,
+        });
+
+        if (response['success'] != true) {
+          throw Exception(response['message'] ?? 'Failed to reset password');
+        }
+        return;
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for resetPassword, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to reset password after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to reset password after $maxRetries attempts');
+  }
+
+  Future<String> refreshAccessToken() async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _apiClient.get('user/refresh-token');
+
+        if (response['success'] == true) {
+          final newToken = response['newAccessToken'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('accessToken', newToken);
+          return newToken;
+        } else {
+          throw Exception(response['message'] ?? 'Failed to refresh token');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for refreshAccessToken, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to refresh token after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to refresh token after $maxRetries attempts');
+  }
+
+  Future<String> upgradeToPremium(String duration) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final accessToken = prefs.getString('accessToken');
+
+        if (accessToken == null) {
+          throw Exception('No access token found');
+        }
+
+        final response = await _apiClient.post(
+          'user/upgrade-premium',
+          {'duration': duration},
+          token: accessToken,
+        );
+
+        if (response['success'] == true) {
+          return response['paymentUrl'] as String;
+        } else {
+          throw Exception(response['message'] ?? 'Failed to upgrade to premium');
+        }
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for upgradeToPremium, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to upgrade to premium after $maxRetries attempts: $e');
+        }
+      }
+    }
+    throw Exception('Failed to upgrade to premium after $maxRetries attempts');
+  }
+
+  Future<void> logout() async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final accessToken = prefs.getString('accessToken');
+
+        if (accessToken != null) {
+          await _apiClient.get('user/logout', token: accessToken);
+        }
+
+        await prefs.remove('accessToken');
+        await prefs.remove('user_data');
+        return;
+      } catch (e) {
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for logout, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          print('Error calling logout API: $e');
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('accessToken');
+          await prefs.remove('user_data');
+        }
+      }
     }
   }
-}
+} 

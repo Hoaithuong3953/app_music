@@ -232,23 +232,30 @@ class _LibraryPageState extends State<LibraryPage> {
                             Positioned(
                               top: 0,
                               right: 0,
-                              child: GestureDetector(
-                                onTap: _isCreating
-                                    ? null
-                                    : () {
-                                  setDialogState(() {
-                                    _selectedImage = null;
-                                  });
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 20,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: _isCreating
+                                        ? null
+                                        : () {
+                                      setDialogState(() {
+                                        _selectedImage = null;
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),

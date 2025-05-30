@@ -121,31 +121,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               ),
                             ),
                             // Vùng điều chỉnh hình tròn trong suốt
-                            GestureDetector(
-                              onScaleUpdate: (details) {
-                                setDialogState(() {
-                                  scale = details.scale.clamp(0.5, 4.0);
-                                  dx += details.focalPointDelta.dx / scale;
-                                  dy += details.focalPointDelta.dy / scale;
-                                });
-                              },
-                              child: Container(
-                                width: previewSize,
-                                height: previewSize,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.black54, width: 2),
-                                ),
-                                child: ClipOval(
-                                  child: Transform(
-                                    transform: Matrix4.identity()
-                                      ..scale(scale)
-                                      ..translate(dx, dy),
-                                    child: Image.file(
-                                      tempImage,
-                                      fit: BoxFit.cover,
-                                      width: previewSize,
-                                      height: previewSize,
+                            Material(
+                              color: Colors.transparent,
+                              child: GestureDetector(
+                                onScaleUpdate: (details) {
+                                  setDialogState(() {
+                                    scale = details.scale.clamp(0.5, 4.0);
+                                    dx += details.focalPointDelta.dx / scale;
+                                    dy += details.focalPointDelta.dy / scale;
+                                  });
+                                },
+                                child: Container(
+                                  width: previewSize,
+                                  height: previewSize,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.black54, width: 2),
+                                  ),
+                                  child: ClipOval(
+                                    child: Transform(
+                                      transform: Matrix4.identity()
+                                        ..scale(scale)
+                                        ..translate(dx, dy),
+                                      child: Image.file(
+                                        tempImage,
+                                        fit: BoxFit.cover,
+                                        width: previewSize,
+                                        height: previewSize,
+                                      ),
                                     ),
                                   ),
                                 ),

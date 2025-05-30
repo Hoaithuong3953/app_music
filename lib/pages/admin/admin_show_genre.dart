@@ -166,7 +166,7 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
       final updatedSongIds = genre!.songs.where((id) => id != songId).toList();
       await _genreService.updateGenre(
         genreId: widget.genreId,
-        songIds: updatedSongIds,
+        // songIds: updatedSongIds,
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(

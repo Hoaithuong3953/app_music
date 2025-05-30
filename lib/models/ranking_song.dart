@@ -1,8 +1,8 @@
-import 'package:music_player_app/models/song.dart';
+import 'song.dart';
 
 class RankingSong {
-  final String songId; // Thay vì Song, chỉ lưu ObjectId nếu chưa populate
-  final Song? song; // Lưu Song nếu đã populate
+  final String songId;
+  final Song? song;
   final String artist;
   final List<String> genre;
   final int rank;
@@ -19,7 +19,7 @@ class RankingSong {
 
   factory RankingSong.fromJson(Map<String, dynamic> json) {
     return RankingSong(
-      songId: json['song'] is Map<String, dynamic> ? json['song']['_id']?.toString() ?? '' : json['song']?.toString() ?? '',
+      songId: json['_id']?.toString() ?? '',
       song: json['song'] is Map<String, dynamic> ? Song.fromJson(json['song']) : null,
       artist: json['artist'] != null && json['artist']['title'] != null ? json['artist']['title'] : 'Unknown',
       genre: json['genre'] != null && (json['genre'] as List<dynamic>?) != null

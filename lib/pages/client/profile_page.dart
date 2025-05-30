@@ -18,104 +18,107 @@ class ProfilePage extends StatelessWidget {
     // Kết hợp firstName và lastName
     final fullName = '$firstName $lastName'.trim();
 
-    return Container(
+    return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(screenWidth * 0.04, screenHeight * 0.03, screenWidth * 0.04, 0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Theme.of(context).primaryColor, width: screenWidth * 0.01),
+      child: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(screenWidth * 0.04, screenHeight * 0.03, screenWidth * 0.04, 0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Theme.of(context).primaryColor, width: screenWidth * 0.01),
+                    ),
+                    child: CircleAvatar(
+                      radius: screenHeight * 0.1,
+                      backgroundColor: Theme.of(context).primaryColor,
+                      backgroundImage: avatarImgURL != null ? NetworkImage(avatarImgURL) : null, // Hiển thị ảnh từ avatarImgURL
+                      child: avatarImgURL == null // Nếu không có avatarImgURL, hiển thị chữ cái đầu
+                          ? Text(
+                        fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          fontSize: screenHeight * 0.08,
+                          color: Colors.white,
+                        ),
+                      )
+                          : null,
+                    ),
                   ),
-                  child: CircleAvatar(
-                    radius: screenHeight * 0.1,
-                    backgroundColor: Theme.of(context).primaryColor,
-                    backgroundImage: avatarImgURL != null ? NetworkImage(avatarImgURL) : null, // Hiển thị ảnh từ avatarImgURL
-                    child: avatarImgURL == null // Nếu không có avatarImgURL, hiển thị chữ cái đầu
-                        ? Text(
-                      fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontSize: screenHeight * 0.08,
-                        color: Colors.white,
-                      ),
-                    )
-                        : null,
+                  SizedBox(height: screenHeight * 0.02),
+                  Text(
+                    fullName,
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontSize: screenHeight * 0.03,
+                    ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                Text(
-                  fullName,
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontSize: screenHeight * 0.03,
+                  SizedBox(height: screenHeight * 0.01),
+                  Text(
+                    userEmail,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: screenHeight * 0.02,
+                    ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.01),
-                Text(
-                  userEmail,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: screenHeight * 0.02,
+                  SizedBox(height: screenHeight * 0.03),
+                  _buildListTile(
+                    context,
+                    icon: Icons.edit,
+                    iconColor: Theme.of(context).highlightColor,
+                    title: 'Edit Profile',
+                    screenHeight: screenHeight,
+                    screenWidth: screenWidth,
+                    onTap: () {
+                      Navigator.pushNamed(context, '/edit-profile');
+                    },
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.03),
-                _buildListTile(
-                  context,
-                  icon: Icons.edit,
-                  iconColor: Theme.of(context).highlightColor,
-                  title: 'Edit Profile',
-                  screenHeight: screenHeight,
-                  screenWidth: screenWidth,
-                  onTap: () {
-                    Navigator.pushNamed(context, '/edit-profile');
-                  },
-                ),
-                SizedBox(height: screenHeight * 0.01),
-                _buildListTile(
-                  context,
-                  icon: Icons.lock,
-                  iconColor: Theme.of(context).highlightColor,
-                  title: 'Change Password',
-                  screenHeight: screenHeight,
-                  screenWidth: screenWidth,
-                  onTap: () {
-                    Navigator.pushNamed(context, '/change-password');
-                  },
-                ),
-                SizedBox(height: screenHeight * 0.01),
-                _buildListTile(
-                  context,
-                  icon: Icons.settings,
-                  iconColor: Theme.of(context).highlightColor,
-                  title: 'Settings',
-                  screenHeight: screenHeight,
-                  screenWidth: screenWidth,
-                ),
-                SizedBox(height: screenHeight * 0.01),
-                _buildListTile(
-                  context,
-                  icon: Icons.exit_to_app,
-                  iconColor: Colors.red,
-                  title: 'Log Out',
-                  textColor: Colors.red,
-                  screenHeight: screenHeight,
-                  screenWidth: screenWidth,
-                  onTap: () async {
-                    try {
-                      final userProvider = Provider.of<UserProvider>(context, listen: false);
-                      await userProvider.logout();
-                      Navigator.pushReplacementNamed(context, '/login');
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Logout failed: $e')),
-                      );
-                    }
-                  },
-                ),
-              ],
+                  SizedBox(height: screenHeight * 0.01),
+                  _buildListTile(
+                    context,
+                    icon: Icons.lock,
+                    iconColor: Theme.of(context).highlightColor,
+                    title: 'Change Password',
+                    screenHeight: screenHeight,
+                    screenWidth: screenWidth,
+                    onTap: () {
+                      Navigator.pushNamed(context, '/change-password');
+                    },
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  _buildListTile(
+                    context,
+                    icon: Icons.settings,
+                    iconColor: Theme.of(context).highlightColor,
+                    title: 'Settings',
+                    screenHeight: screenHeight,
+                    screenWidth: screenWidth,
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  _buildListTile(
+                    context,
+                    icon: Icons.exit_to_app,
+                    iconColor: Colors.red,
+                    title: 'Log Out',
+                    textColor: Colors.red,
+                    screenHeight: screenHeight,
+                    screenWidth: screenWidth,
+                    onTap: () async {
+                      try {
+                        final userProvider = Provider.of<UserProvider>(context, listen: false);
+                        await userProvider.logout();
+                        Navigator.pushReplacementNamed(context, '/login');
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Logout failed: $e')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
