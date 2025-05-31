@@ -18,11 +18,10 @@ class MiniPlayer extends StatelessWidget {
         final currentSong = songProvider.currentSong;
         final isPlaying = playbackProvider.isPlaying;
 
+        // Return empty container if no song is playing
         if (currentSong == null) {
           return const SizedBox.shrink();
         }
-
-        final hasValidUrl = currentSong.url != null && currentSong.url!.isNotEmpty;
 
         return GestureDetector(
           onTap: () {
@@ -60,7 +59,9 @@ class MiniPlayer extends StatelessWidget {
                     backgroundImage: currentSong.coverImage != null ? NetworkImage(currentSong.coverImage!) : null,
                     child: currentSong.coverImage == null
                         ? Text(
-                      currentSong.title.isNotEmpty ? currentSong.title[0].toUpperCase() : 'S',
+                      currentSong.title.isNotEmpty
+                          ? currentSong.title[0].toUpperCase()
+                          : 'S',
                       style: TextStyle(color: Theme.of(context).highlightColor),
                     )
                         : null,
@@ -76,7 +77,7 @@ class MiniPlayer extends StatelessWidget {
                           physics: const ClampingScrollPhysics(),
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              minWidth: screenWidth * 0.4, // Đảm bảo chiều rộng tối thiểu để scroll
+                              minWidth: screenWidth * 0.4,
                             ),
                             child: Text(
                               currentSong.title,
@@ -89,10 +90,14 @@ class MiniPlayer extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          hasValidUrl ? (currentSong.artist ?? 'Unknown Artist') : 'URL is missing',
+                          currentSong.url != null && currentSong.url!.isNotEmpty
+                              ? (currentSong.artist ?? 'Unknown Artist')
+                              : 'URL is missing',
                           style: TextStyle(
                             fontSize: 12,
-                            color: hasValidUrl ? Colors.grey[700] : Colors.red,
+                            color: currentSong.url == null || currentSong.url!.isEmpty
+                                ? Colors.red
+                                : Colors.grey[700],
                           ),
                         ),
                       ],
@@ -105,7 +110,7 @@ class MiniPlayer extends StatelessWidget {
                           Icons.skip_previous,
                           color: Theme.of(context).colorScheme.secondary,
                         ),
-                        onPressed: hasValidUrl
+                        onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
                             ? () {
                           songProvider.previousSong();
                           final newSong = songProvider.currentSong;
@@ -122,7 +127,7 @@ class MiniPlayer extends StatelessWidget {
                           isPlaying ? Icons.pause : Icons.play_arrow,
                           color: Theme.of(context).colorScheme.secondary,
                         ),
-                        onPressed: hasValidUrl
+                        onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
                             ? () {
                           Provider.of<AudioHandlerProvider>(context, listen: false).playPause();
                         }
@@ -133,7 +138,7 @@ class MiniPlayer extends StatelessWidget {
                           Icons.skip_next,
                           color: Theme.of(context).colorScheme.secondary,
                         ),
-                        onPressed: hasValidUrl
+                        onPressed: currentSong.url != null && currentSong.url!.isNotEmpty
                             ? () {
                           songProvider.nextSong();
                           final newSong = songProvider.currentSong;

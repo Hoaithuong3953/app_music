@@ -16,6 +16,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   String? _oldPasswordError;
   String? _newPasswordError;
   String? _confirmPasswordError;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -35,6 +36,12 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       // Kiểm tra độ dài mật khẩu mới (ít nhất 8 ký tự)
       if (_newPasswordController.text.length < 8) {
         _newPasswordError = 'Password must be at least 8 characters long';
+        isValid = false;
+      }
+
+      // Kiểm tra mật khẩu mới không trùng với mật khẩu cũ
+      if (_newPasswordController.text == _oldPasswordController.text) {
+        _newPasswordError = 'New password must be different from old password';
         isValid = false;
       }
 
@@ -205,13 +212,19 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                 ],
                 SizedBox(height: screenHeight * 0.03),
                 ElevatedButton(
-                  onPressed: () async {
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
                     if (!_validateInputs()) return;
+
+                    setState(() {
+                      _isLoading = true;
+                    });
 
                     try {
                       final userProvider = Provider.of<UserProvider>(context, listen: false);
                       await userProvider.changePassword(
-                        oldPassword: _oldPasswordController.text,
+                        oldPassword: _oldPasswordController.text, // Giữ tham số này để tương thích sau này
                         newPassword: _newPasswordController.text,
                       );
                       showDialog(
@@ -227,9 +240,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       );
                     } catch (e) {
                       String error = e.toString();
-                      if (error.contains("Old password is incorrect")) {
-                        error = "Old password is incorrect.";
-                      } else if (error.contains("Missing input")) {
+                      if (error.contains("Missing input")) {
                         error = "Please fill in all fields.";
                       } else {
                         error = "Failed to change password. Please try again.";
@@ -244,6 +255,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           autoDismissDuration: Duration(seconds: 4),
                         ),
                       );
+                    } finally {
+                      setState(() {
+                        _isLoading = false;
+                      });
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -256,7 +271,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     ),
                     minimumSize: Size(screenWidth - 32, 56),
                   ),
-                  child: Text(
+                  child: _isLoading
+                      ? const CircularProgressIndicator()
+                      : Text(
                     'Change Password',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontSize: screenHeight * 0.02,

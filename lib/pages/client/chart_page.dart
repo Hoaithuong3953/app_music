@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../widgets/client/song_tile.dart';
+import 'package:provider/provider.dart';
 import '../../models/song.dart';
+import '../../models/ranking_song.dart';
+import '../../providers/ranking_provider.dart';
+import '../../providers/song_provider.dart';
+import '../../providers/audio_handler_provider.dart';
+import '../../providers/playback_provider.dart';
 import '../../service/client/song_service.dart';
+import '../../widgets/client/song_tile.dart';
 
 class ChartPage extends StatefulWidget {
   @override
@@ -9,27 +15,26 @@ class ChartPage extends StatefulWidget {
 }
 
 class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMixin {
-  final SongService _songService = SongService();
   late TabController _tabController;
+  final SongService _songService = SongService();
+  final Map<String, Song> _songCache = {};
 
-  // Danh sách bài hát cho từng tab
-  List<Map<String, dynamic>> dailySongs = [];
-  List<Map<String, dynamic>> weeklySongs = [];
-  List<Map<String, dynamic>> monthlySongs = [];
+  List<Song> _dailySongs = [];
+  List<Song> _weeklySongs = [];
+  List<Song> _monthlySongs = [];
+  List<RankingSong> _dailyRanking = [];
+  List<RankingSong> _weeklyRanking = [];
+  List<RankingSong> _monthlyRanking = [];
 
-  bool isLoadingDaily = true;
-  bool isLoadingWeekly = true;
-  bool isLoadingMonthly = true;
-
-  String? errorMessageDaily;
-  String? errorMessageWeekly;
-  String? errorMessageMonthly;
+  late Future<void> _fetchDataFuture;
+  final int _desiredSongCount = 16;
+  final int _limitPerPage = 20;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _fetchSongs();
+    _fetchDataFuture = _fetchAllRankingSongs();
   }
 
   @override
@@ -38,107 +43,311 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  Future<void> _fetchSongs() async {
-    setState(() {
-      isLoadingDaily = true;
-      isLoadingWeekly = true;
-      isLoadingMonthly = true;
-      errorMessageDaily = null;
-      errorMessageWeekly = null;
-      errorMessageMonthly = null;
-    });
-
+  Future<void> _fetchAllRankingSongs() async {
     try {
-      final fetchedSongs = await _songService.getAllSongs();
-      if (fetchedSongs.isEmpty) {
-        setState(() {
-          errorMessageDaily = 'No songs available';
-          errorMessageWeekly = 'No songs available';
-          errorMessageMonthly = 'No songs available';
-          isLoadingDaily = false;
-          isLoadingWeekly = false;
-          isLoadingMonthly = false;
-        });
+      final rankingProvider = Provider.of<RankingProvider>(context, listen: false);
+      
+      int page = 1;
+      _dailyRanking = [];
+      while (_dailyRanking.length < _desiredSongCount) {
+        await rankingProvider.fetchDailySongs(limit: _limitPerPage, page: page);
+        _dailyRanking.addAll(rankingProvider.dailySongs);
+        if (rankingProvider.dailySongs.length < _limitPerPage) break;
+        page++;
+      }
+      
+      page = 1;
+      _weeklyRanking = [];
+      while (_weeklyRanking.length < _desiredSongCount) {
+        await rankingProvider.fetchWeeklySongs(limit: _limitPerPage, page: page);
+        _weeklyRanking.addAll(rankingProvider.weeklySongs);
+        if (rankingProvider.weeklySongs.length < _limitPerPage) break;
+        page++;
+      }
+      
+      page = 1;
+      _monthlyRanking = [];
+      while (_monthlyRanking.length < _desiredSongCount) {
+        await rankingProvider.fetchMonthlySongs(limit: _limitPerPage, page: page);
+        _monthlyRanking.addAll(rankingProvider.monthlySongs);
+        if (rankingProvider.monthlySongs.length < _limitPerPage) break;
+        page++;
+      }
+
+      print('Daily Ranking: ${_dailyRanking.map((rs) => rs.songId).toList()}');
+      print('Weekly Ranking: ${_weeklyRanking.map((rs) => rs.songId).toList()}');
+      print('Monthly Ranking: ${_monthlyRanking.map((rs) => rs.songId).toList()}');
+
+      _dailySongs = await _fetchSongsForRanking(_dailyRanking);
+      _weeklySongs = await _fetchSongsForRanking(_weeklyRanking);
+      _monthlySongs = await _fetchSongsForRanking(_monthlyRanking);
+
+      print('Daily Songs: ${_dailySongs.map((s) => s.id).toList()}');
+      print('Weekly Songs: ${_weeklySongs.map((s) => s.id).toList()}');
+      print('Monthly Songs: ${_monthlySongs.map((s) => s.id).toList()}');
+    } catch (e) {
+      print('Error fetching rankings: $e');
+      if (_dailyRanking.isEmpty) {
+        _dailyRanking = _createMockRankingSongs();
+        _dailySongs = await _fetchSongsForRanking(_dailyRanking);
+      }
+      if (_weeklyRanking.isEmpty) {
+        _weeklyRanking = _createMockRankingSongs();
+        _weeklySongs = await _fetchSongsForRanking(_weeklyRanking);
+      }
+      if (_monthlyRanking.isEmpty) {
+        _monthlyRanking = _createMockRankingSongs();
+        _monthlySongs = await _fetchSongsForRanking(_monthlyRanking);
+      }
+    }
+  }
+
+  List<RankingSong> _createMockRankingSongs() {
+    final List<RankingSong> mockRankings = [];
+    for (int i = 0; i < _desiredSongCount; i++) {
+      final mockId = 'mock_$i';
+      final mockSong = Song(
+        id: mockId,
+        title: 'Mock Song ${i + 1}',
+        description: null,
+        lyrics: null,
+        artist: 'Mock Artist',
+        album: null,
+        genre: const [],
+        duration: null,
+        slugify: null,
+        url: null,
+        coverImage: 'https://via.placeholder.com/150',
+        views: 0,
+        dailyViews: 0,
+        weeklyViews: 0,
+        trendingScore: 0,
+        lastReset: DateTime.now(),
+        likes: const [],
+        dislikes: const [],
+        comments: const [],
+        isPublic: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      _songCache[mockId] = mockSong;
+      mockRankings.add(RankingSong(
+        songId: mockId,
+        song: mockSong,
+        artist: 'Mock Artist',
+        genre: const [],
+        rank: i + 1,
+        score: (1000 - i * 100).toDouble(),
+      ));
+    }
+    return mockRankings;
+  }
+
+  Future<List<Song>> _fetchSongsForRanking(List<RankingSong> rankingList) async {
+    final seen = <String>{};
+    final List<String> songIds = [];
+    print('Fetching songs for ${rankingList.length} rankings');
+    for (final rs in rankingList) {
+      if (!seen.contains(rs.songId) && rs.songId.isNotEmpty) {
+        seen.add(rs.songId);
+        if (!_songCache.containsKey(rs.songId)) {
+          songIds.add(rs.songId);
+        }
+      }
+    }
+    print('Fetching ${songIds.length} songs with IDs: $songIds');
+    try {
+      for (final songId in songIds) {
+        try {
+          final song = await _songService.getSong(songId);
+          print('Fetched song with ID: ${song.id}, expected ID: $songId');
+          _songCache[songId] = song;
+        } catch (e) {
+          print('Error fetching song $songId: $e');
+          _songCache[songId] = Song(
+            id: songId,
+            title: 'Unknown Song',
+            description: null,
+            lyrics: null,
+            artist: null,
+            album: null,
+            genre: const [],
+            duration: null,
+            slugify: null,
+            url: null,
+            coverImage: null,
+            views: 0,
+            dailyViews: 0,
+            weeklyViews: 0,
+            trendingScore: 0,
+            lastReset: DateTime.now(),
+            likes: const [],
+            dislikes: const [],
+            comments: const [],
+            isPublic: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }
+      }
+      final allSongs = <Song>[];
+      final seenSongs = <String>{};
+      for (final rs in rankingList) {
+        if (rs.songId.isNotEmpty) {
+          final song = _songCache[rs.songId]!;
+          if (!seenSongs.contains(song.id)) {
+            seenSongs.add(song.id);
+            allSongs.add(song);
+          }
+        }
+      }
+      print('Total songs after cache: ${allSongs.length}');
+
+      while (allSongs.length < 3) {
+        final mockId = 'mock_${allSongs.length}';
+        final mockSong = Song(
+          id: mockId,
+          title: 'Mock Song ${allSongs.length + 1}',
+          description: null,
+          lyrics: null,
+          artist: 'Mock Artist',
+          album: null,
+          genre: const [],
+          duration: null,
+          slugify: null,
+          url: null,
+          coverImage: 'https://via.placeholder.com/150',
+          views: 0,
+          dailyViews: 0,
+          weeklyViews: 0,
+          trendingScore: 0,
+          lastReset: DateTime.now(),
+          likes: const [],
+          dislikes: const [],
+          comments: const [],
+          isPublic: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        allSongs.add(mockSong);
+        _songCache[mockId] = mockSong;
+        rankingList.add(RankingSong(
+          songId: mockId,
+          song: mockSong,
+          artist: 'Mock Artist',
+          genre: const [],
+          rank: allSongs.length,
+          score: 0.0,
+        ));
+      }
+
+      return allSongs;
+    } catch (e) {
+      print('Error fetching songs: $e');
+      final allSongs = <Song>[];
+      final seenSongs = <String>{};
+      for (final rs in rankingList) {
+        if (rs.songId.isNotEmpty) {
+          final song = _songCache[rs.songId] ?? Song(
+            id: rs.songId,
+            title: 'Unknown Song',
+            description: null,
+            lyrics: null,
+            artist: null,
+            album: null,
+            genre: const [],
+            duration: null,
+            slugify: null,
+            url: null,
+            coverImage: null,
+            views: 0,
+            dailyViews: 0,
+            weeklyViews: 0,
+            trendingScore: 0,
+            lastReset: DateTime.now(),
+            likes: const [],
+            dislikes: const [],
+            comments: const [],
+            isPublic: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          if (!seenSongs.contains(song.id)) {
+            seenSongs.add(song.id);
+            allSongs.add(song);
+          }
+        }
+      }
+
+      while (allSongs.length < 3) {
+        final mockId = 'mock_${allSongs.length}';
+        final mockSong = Song(
+          id: mockId,
+          title: 'Mock Song ${allSongs.length + 1}',
+          description: null,
+          lyrics: null,
+          artist: 'Mock Artist',
+          album: null,
+          genre: const [],
+          duration: null,
+          slugify: null,
+          url: null,
+          coverImage: 'https://via.placeholder.com/150',
+          views: 0,
+          dailyViews: 0,
+          weeklyViews: 0,
+          trendingScore: 0,
+          lastReset: DateTime.now(),
+          likes: const [],
+          dislikes: const [],
+          comments: const [],
+          isPublic: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        allSongs.add(mockSong);
+        _songCache[mockId] = mockSong;
+        rankingList.add(RankingSong(
+          songId: mockId,
+          song: mockSong,
+          artist: 'Mock Artist',
+          genre: const [],
+          rank: allSongs.length,
+          score: 0.0,
+        ));
+      }
+
+      return allSongs;
+    }
+  }
+
+  Future<void> _playSong(BuildContext context, Song song, List<Song> playlist, String playlistId) async {
+    try {
+      if (song.url == null || song.url!.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot play song: URL is missing')),
+        );
         return;
       }
 
-      // Sắp xếp bài hát theo createdAt giảm dần (mới nhất trước)
-      fetchedSongs.sort((a, b) {
-        final songA = a['song'] as Song;
-        final songB = b['song'] as Song;
-        return songB.createdAt.compareTo(songA.createdAt);
-      });
+      final songProvider = Provider.of<SongProvider>(context, listen: false);
+      final audioHandlerProvider = Provider.of<AudioHandlerProvider>(context, listen: false);
+      final playbackProvider = Provider.of<PlaybackProvider>(context, listen: false);
 
-      // Giả lập dữ liệu cho từng tab
-      final playsDaily = [1250000, 980000, 750000, 600000, 500000]; // Giả định số lần phát trong ngày
-      final playsWeekly = [2500000, 1960000, 1500000, 1200000, 1000000]; // Giả định số lần phát trong tuần
-      final playsMonthly = [5000000, 3920000, 3000000, 2400000, 2000000]; // Giả định số lần phát trong tháng
+      songProvider.setPlaylist(playlist, playlistId: playlistId);
+      songProvider.setCurrentSong(song);
 
-      // Giả lập lọc bài hát theo ngày, tuần, tháng
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-      final startOfMonth = DateTime(now.year, now.month, 1);
-
-      // Lọc bài hát theo ngày (giả lập: lấy 5 bài mới nhất)
-      final dailyFiltered = fetchedSongs.take(5).toList();
-      setState(() {
-        dailySongs = dailyFiltered.asMap().entries.map((entry) {
-          final index = entry.key;
-          final songData = entry.value;
-          final song = songData['song'] as Song;
-          final artistName = songData['artistName'] as String;
-          return {
-            'song': song,
-            'artistName': artistName,
-            'plays': index < playsDaily.length ? playsDaily[index] : 500000 - index * 10000,
-          };
-        }).toList();
-        isLoadingDaily = false;
-      });
-
-      // Lọc bài hát theo tuần (giả lập: lấy 10 bài mới nhất)
-      final weeklyFiltered = fetchedSongs.take(10).toList();
-      setState(() {
-        weeklySongs = weeklyFiltered.asMap().entries.map((entry) {
-          final index = entry.key;
-          final songData = entry.value;
-          final song = songData['song'] as Song;
-          final artistName = songData['artistName'] as String;
-          return {
-            'song': song,
-            'artistName': artistName,
-            'plays': index < playsWeekly.length ? playsWeekly[index] : 1000000 - index * 20000,
-          };
-        }).toList();
-        isLoadingWeekly = false;
-      });
-
-      // Lọc bài hát theo tháng (giả lập: lấy tất cả bài hát)
-      final monthlyFiltered = fetchedSongs.toList();
-      setState(() {
-        monthlySongs = monthlyFiltered.asMap().entries.map((entry) {
-          final index = entry.key;
-          final songData = entry.value;
-          final song = songData['song'] as Song;
-          final artistName = songData['artistName'] as String;
-          return {
-            'song': song,
-            'artistName': artistName,
-            'plays': index < playsMonthly.length ? playsMonthly[index] : 2000000 - index * 40000,
-          };
-        }).toList();
-        isLoadingMonthly = false;
-      });
+      if (songProvider.currentSong?.id == song.id && playbackProvider.isPlaying) {
+        await audioHandlerProvider.playPause();
+      } else {
+        await audioHandlerProvider.playSong(song);
+      }
     } catch (e) {
-      setState(() {
-        errorMessageDaily = e.toString();
-        errorMessageWeekly = e.toString();
-        errorMessageMonthly = e.toString();
-        isLoadingDaily = false;
-        isLoadingWeekly = false;
-        isLoadingMonthly = false;
-      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error playing song: $e')),
+      );
     }
   }
 
@@ -149,6 +358,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false, // Tắt nút "arrow back"
         title: Text(
           'Charts',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -165,71 +375,64 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
           tabs: const [
             Tab(text: 'Day'),
             Tab(text: 'Week'),
-            Tab(text: 'Month'),
+            Tab(text: 'Trending'),
           ],
         ),
       ),
-      body: Container(
-        color: Colors.white,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            // Tab Day
-            _buildTabContent(
-              context,
-              isLoading: isLoadingDaily,
-              errorMessage: errorMessageDaily,
-              songs: dailySongs,
-              title: 'Top Songs Today',
-              screenHeight: screenHeight,
-              screenWidth: screenWidth,
-            ),
-            // Tab Week
-            _buildTabContent(
-              context,
-              isLoading: isLoadingWeekly,
-              errorMessage: errorMessageWeekly,
-              songs: weeklySongs,
-              title: 'Top Songs This Week',
-              screenHeight: screenHeight,
-              screenWidth: screenWidth,
-            ),
-            // Tab Month
-            _buildTabContent(
-              context,
-              isLoading: isLoadingMonthly,
-              errorMessage: errorMessageMonthly,
-              songs: monthlySongs,
-              title: 'Top Songs This Month',
-              screenHeight: screenHeight,
-              screenWidth: screenWidth,
-            ),
-          ],
-        ),
+      body: FutureBuilder<void>(
+        future: _fetchDataFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildTabContent(context, _dailyRanking, _dailySongs, 'Top Songs Today', screenHeight, screenWidth, 0),
+              _buildTabContent(context, _weeklyRanking, _weeklySongs, 'Top Songs This Week', screenHeight, screenWidth, 1),
+              _buildTabContent(context, _monthlyRanking, _monthlySongs, 'Trending Songs', screenHeight, screenWidth, 2),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildTabContent(
-      BuildContext context, {
-        required bool isLoading,
-        required String? errorMessage,
-        required List<Map<String, dynamic>> songs,
-        required String title,
-        required double screenHeight,
-        required double screenWidth,
-      }) {
-    if (isLoading) {
-      return Center(child: CircularProgressIndicator());
+      BuildContext context,
+      List<RankingSong> rankingList,
+      List<Song> songList,
+      String title,
+      double screenHeight,
+      double screenWidth,
+      int tabIndex) {
+    final Map<String, Song> songMap = {};
+    final seen = <String>{};
+    for (var s in songList) {
+      if (!seen.contains(s.id)) {
+        seen.add(s.id);
+        songMap[s.id] = s;
+      }
+    }
+    print('Song map for $title: $songMap');
+    print('Ranking list for $title: ${rankingList.map((rs) => rs.songId).toList()}');
+
+    final List<RankingSong> displayRankingList = rankingList.take(3).toList();
+    final List<Song> displaySongList = [];
+    final seenRankingIds = <String>{};
+    for (var ranking in displayRankingList) {
+      if (!seenRankingIds.contains(ranking.songId) && songMap[ranking.songId] != null) {
+        seenRankingIds.add(ranking.songId);
+        displaySongList.add(songMap[ranking.songId]!);
+      }
     }
 
-    if (errorMessage != null) {
-      return Center(child: Text('Error: $errorMessage'));
-    }
-
-    if (songs.length < 3) {
+    if (displaySongList.length < 3) {
       return const Center(
-        child: Text('Not enough songs to display the chart.'),
+        child: CircularProgressIndicator(),
       );
     }
 
@@ -239,50 +442,27 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top 3 Grid: Top 1 ở giữa và to hơn, Top 2 và 3 ở hai bên
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Top 2 (bên trái)
-                Expanded(
-                  child: _buildTopSongCard(
-                    context,
-                    rank: 2,
-                    songData: songs[1],
-                    imageSize: screenWidth * 0.18,
-                    fontSizeTitle: screenHeight * 0.018,
-                    fontSizeArtist: screenHeight * 0.014,
-                    fontSizePlays: screenHeight * 0.012,
-                    screenWidth: screenWidth,
-                  ),
-                ),
-                // Top 1 (ở giữa, to hơn)
-                Expanded(
-                  child: _buildTopSongCard(
-                    context,
-                    rank: 1,
-                    songData: songs[0],
-                    imageSize: screenWidth * 0.32,
-                    fontSizeTitle: screenHeight * 0.025,
-                    fontSizeArtist: screenHeight * 0.018,
-                    fontSizePlays: screenHeight * 0.014,
-                    screenWidth: screenWidth,
-                  ),
-                ),
-                // Top 3 (bên phải)
-                Expanded(
-                  child: _buildTopSongCard(
-                    context,
-                    rank: 3,
-                    songData: songs[2],
-                    imageSize: screenWidth * 0.18,
-                    fontSizeTitle: screenHeight * 0.018,
-                    fontSizeArtist: screenHeight * 0.014,
-                    fontSizePlays: screenHeight * 0.012,
-                    screenWidth: screenWidth,
-                  ),
-                ),
+                for (int i in [1, 0, 2])
+                  if (displayRankingList.length > i && songMap[displayRankingList[i].songId] != null)
+                    Expanded(
+                      child: _buildTopSongCard(
+                        context,
+                        rank: i + 1,
+                        songData: displayRankingList[i],
+                        song: songMap[displayRankingList[i].songId]!,
+                        imageSize: i == 0 ? screenWidth * 0.32 : screenWidth * 0.18,
+                        fontSizeTitle: i == 0 ? screenHeight * 0.025 : screenHeight * 0.018,
+                        fontSizeArtist: i == 0 ? screenHeight * 0.018 : screenHeight * 0.014,
+                        fontSizePlays: i == 0 ? screenHeight * 0.014 : screenHeight * 0.012,
+                        screenWidth: screenWidth,
+                        songs: songList,
+                        tabIndex: tabIndex,
+                      ),
+                    ),
               ],
             ),
             SizedBox(height: screenHeight * 0.015),
@@ -294,21 +474,23 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
               ),
             ),
             SizedBox(height: screenHeight * 0.01),
-            // Danh sách bài hát từ vị trí 4 trở đi
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: songs.length - 3,
+              itemCount: rankingList.length - 3,
               itemBuilder: (context, index) {
-                final songData = songs[index + 3];
-                final song = songData['song'] as Song;
-                final artistName = songData['artistName'] as String;
+                final ranking = rankingList[index + 3];
+                final song = songMap[ranking.songId];
+                if (song == null) {
+                  print('Song not found for ranking: ${ranking.songId}');
+                  return const SizedBox.shrink();
+                }
                 return SongTile(
                   song: song,
-                  artistName: artistName,
+                  artistName: getArtistName(song.artist),
                   index: index + 4,
                   isRanking: true,
-                  playlist: songs.map((data) => data['song'] as Song).toList(),
+                  playlist: songList,
                   playlistId: 'chart_${_tabController.index}',
                 );
               },
@@ -322,16 +504,18 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
   Widget _buildTopSongCard(
       BuildContext context, {
         required int rank,
-        required Map<String, dynamic> songData,
+        required RankingSong songData,
+        required Song song,
         required double imageSize,
         required double fontSizeTitle,
         required double fontSizeArtist,
         required double fontSizePlays,
         required double screenWidth,
+        required List<Song> songs,
+        required int tabIndex,
       }) {
-    final Song song = songData['song'] as Song;
-    final String artistName = songData['artistName'] as String;
-    final int plays = songData['plays'] as int;
+    final artistName = getArtistName(song.artist);
+    final plays = songData.score;
 
     return Column(
       children: [
@@ -355,33 +539,50 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
           ),
         ),
         SizedBox(height: imageSize * 0.05),
-        Container(
-          width: imageSize,
-          height: imageSize,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              _playSong(
+                context,
+                song,
+                songs,
+                'chart_$tabIndex',
+              );
+            },
             borderRadius: BorderRadius.circular(12),
-          ),
-          child: song.coverImage != null
-              ? ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              song.coverImage!,
-              fit: BoxFit.cover,
-              width: imageSize,
-              height: imageSize,
-              errorBuilder: (context, error, stackTrace) => Icon(
-                Icons.music_note,
-                size: imageSize * 0.5,
-                color: Colors.grey[600],
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: Container(
+                width: imageSize,
+                height: imageSize,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: song.coverImage != null
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    song.coverImage!,
+                    fit: BoxFit.cover,
+                    width: imageSize,
+                    height: imageSize,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.music_note,
+                      size: imageSize * 0.5,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                )
+                    : Center(
+                  child: Icon(
+                    Icons.music_note,
+                    size: imageSize * 0.5,
+                    color: Colors.grey[600],
+                  ),
+                ),
               ),
-            ),
-          )
-              : Center(
-            child: Icon(
-              Icons.music_note,
-              size: imageSize * 0.5,
-              color: Colors.grey[600],
             ),
           ),
         ),
@@ -404,7 +605,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         ),
         SizedBox(height: imageSize * 0.05),
         Text(
-          '${(plays / 1000).toStringAsFixed(1)}K plays',
+          _formatPlays(plays),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             fontSize: fontSizePlays,
             color: Theme.of(context).highlightColor,
@@ -412,5 +613,26 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         ),
       ],
     );
+  }
+
+  String getArtistName(dynamic artist) {
+    if (artist == null) return 'Unknown Artist';
+    if (artist is String) return artist;
+    if (artist is Map && artist['title'] != null) return artist['title'];
+    try {
+      return artist.title ?? 'Unknown Artist';
+    } catch (_) {
+      return 'Unknown Artist';
+    }
+  }
+
+  String _formatPlays(num plays) {
+    if (plays >= 1000000) {
+      return '${(plays / 1000000).toStringAsFixed(1)}M plays';
+    } else if (plays >= 1000) {
+      return '${(plays / 1000).toStringAsFixed(1)}K plays';
+    } else {
+      return '${plays.toStringAsFixed(0)} plays';
+    }
   }
 }

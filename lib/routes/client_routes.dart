@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import '../pages/client/home_page.dart';
 import '../pages/client/login_page.dart';
 import '../pages/client/register_page.dart';
@@ -20,9 +21,14 @@ final clientRoutes = {
   '/chart': (context) => ChartPage(),
   '/library': (context) => LibraryPage(),
   '/profile': (context) => ProfilePage(),
+  '/playlist-detail': (context) {
+    final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    final playlistId = arguments?['playlistId'] as String?;
+    return PlaylistDetailPage(playlistId: playlistId);
+  },
+  '/player-page': (context) => PlayerPage(),
   '/edit-profile': (context) => EditProfilePage(),
   '/change-password': (context) => ChangePasswordPage(),
   '/all-songs': (context) => AllSongsPage(),
-  '/playlist-detail': (context) => PlaylistDetailPage(),
-  '/search': (context) => SearchPage(), // Thêm route mới
+  '/search': (context) => SearchPage(),
 };

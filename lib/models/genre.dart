@@ -4,7 +4,7 @@ class Genre {
   final String description;
   final String slugify;
   final String coverImage;
-  final List<String> songs; // Danh sách tham chiếu đến Song (ObjectId)
+  final List<Map<String, dynamic>> songs; // Cập nhật để lưu thông tin bài hát đầy đủ
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -25,8 +25,25 @@ class Genre {
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       slugify: json['slugify']?.toString() ?? '',
-      coverImage: json['coverImage']?.toString() ?? 'https://media.istockphoto.com/id/1396814518/vector/image-coming-soon-no-photo-no-thumbnail-image-available-vector-illustration.jpg?s=612x612&w=0&k=20&c=hnh2OZgQGhf0b46-J2z7aHbIWwq8HNlSDaNp2wn_iko=',
-      songs: (json['songs'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      coverImage: json['coverImage']?.toString() ??
+          'https://media.istockphoto.com/id/1396814518/vector/image-coming-soon-no-photo-no-thumbnail-image-available-vector-illustration.jpg?s=612x612&w=0&k=20&c=hnh2OZgQGhf0b46-J2z7aHbIWwq8HNlSDaNp2wn_iko=',
+      songs: (json['songs'] as List<dynamic>?)?.map((e) {
+            if (e is Map<String, dynamic>) {
+              return {
+                'id': e['_id']?.toString() ?? '',
+                'title': e['title']?.toString() ?? '',
+                'artistName': e['artist'] != null && e['artist'] is Map<String, dynamic>
+                    ? e['artist']['title']?.toString() ?? 'Unknown Artist'
+                    : 'Unknown Artist',
+              };
+            }
+            return {
+              'id': e.toString(),
+              'title': '',
+              'artistName': 'Unknown Artist',
+            };
+          }).toList() ??
+          [],
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );

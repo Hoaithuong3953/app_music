@@ -9,12 +9,14 @@ class PlaylistCard extends StatefulWidget {
   final String ownerName;
   final int songCount;
   final VoidCallback? onPlaylistUpdated;
+  final VoidCallback? onTap;
 
   const PlaylistCard({
     required this.playlist,
     required this.ownerName,
     required this.songCount,
     this.onPlaylistUpdated,
+    this.onTap,
     super.key,
   });
 
@@ -61,18 +63,18 @@ class _PlaylistCardState extends State<PlaylistCard> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Edit Playlist'),
+          title: const Text('Edit Playlist'),
           content: SingleChildScrollView(
             child: Column(
               children: [
                 TextField(
                   controller: _titleController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Playlist Title',
                     border: OutlineInputBorder(),
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 GestureDetector(
                   onTap: _pickImage,
                   child: Container(
@@ -84,23 +86,23 @@ class _PlaylistCardState extends State<PlaylistCard> {
                     ),
                     child: _selectedImage != null
                         ? Image.file(
-                      _selectedImage!,
-                      fit: BoxFit.cover,
-                    )
+                            _selectedImage!,
+                            fit: BoxFit.cover,
+                          )
                         : widget.playlist.coverImageURL != null &&
-                        widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
-                        ? Image.network(
-                      widget.playlist.coverImageURL!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Image.asset(
-                        'images/default_cover.jpg',
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                        : Image.asset(
-                      'images/default_cover.jpg',
-                      fit: BoxFit.cover,
-                    ),
+                                widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
+                            ? Image.network(
+                                widget.playlist.coverImageURL!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Image.asset(
+                                  'images/default_cover.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.asset(
+                                'images/default_cover.jpg',
+                                fit: BoxFit.cover,
+                              ),
                   ),
                 ),
               ],
@@ -108,18 +110,18 @@ class _PlaylistCardState extends State<PlaylistCard> {
           ),
           actions: <Widget>[
             TextButton(
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: Text('Save'),
+              child: const Text('Save'),
               onPressed: () async {
                 final title = _titleController.text.trim();
                 if (title.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Please enter a playlist title')),
+                    const SnackBar(content: Text('Please enter a playlist title')),
                   );
                   return;
                 }
@@ -132,7 +134,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
                   );
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Playlist updated successfully')),
+                    const SnackBar(content: Text('Playlist updated successfully')),
                   );
                   if (widget.onPlaylistUpdated != null) {
                     widget.onPlaylistUpdated!();
@@ -156,17 +158,17 @@ class _PlaylistCardState extends State<PlaylistCard> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Delete Playlist'),
+          title: const Text('Delete Playlist'),
           content: Text('Are you sure you want to delete "${widget.playlist.title}"?'),
           actions: <Widget>[
             TextButton(
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: Text('Delete'),
+              child: const Text('Delete'),
               onPressed: () async {
                 try {
                   await _playlistService.deletePlaylist(
@@ -174,7 +176,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
                   );
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Playlist deleted successfully')),
+                    const SnackBar(content: Text('Playlist deleted successfully')),
                   );
                   if (widget.onPlaylistUpdated != null) {
                     widget.onPlaylistUpdated!();
@@ -197,80 +199,130 @@ class _PlaylistCardState extends State<PlaylistCard> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    final iconSize = screenWidth * 0.12;
-
     return Card(
-      margin: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
-      color: const Color(0xFFE0E0E0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+      margin: EdgeInsets.symmetric(
+        horizontal: screenWidth * 0.03,
+        vertical: screenHeight * 0.015,
       ),
-      child: Container(
-        height: screenHeight * 0.08,
-        child: ListTile(
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.04,
-            vertical: screenHeight * 0.005,
-          ),
-          leading: Container(
-            width: iconSize,
-            height: iconSize,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(8),
+      elevation: 5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(15),
+        splashColor: Theme.of(context).highlightColor.withOpacity(0.2),
+        child: Container(
+          padding: EdgeInsets.all(screenWidth * 0.03),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            gradient: LinearGradient(
+              colors: [
+                Colors.grey[800]!,
+                Colors.grey[900]!,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: widget.playlist.coverImageURL != null &&
-                widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
-                ? Image.network(
-              widget.playlist.coverImageURL!,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Image.asset(
-                'images/default_cover.jpg',
-                fit: BoxFit.cover,
+          ),
+          child: Row(
+            children: [
+              // Ảnh bìa playlist
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: screenWidth * 0.15,
+                  height: screenWidth * 0.15,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                  ),
+                  child: widget.playlist.coverImageURL != null &&
+                          widget.playlist.coverImageURL != 'https://example.com/default-cover.jpg'
+                      ? Image.network(
+                          widget.playlist.coverImageURL!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Image.asset(
+                            'images/default_cover.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Image.asset(
+                          'images/default_cover.jpg',
+                          fit: BoxFit.cover,
+                        ),
+                ),
               ),
-            )
-                : Image.asset(
-              'images/default_cover.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          title: Text(
-            widget.playlist.title,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontSize: screenHeight * 0.02,
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-          subtitle: Text(
-            '${widget.songCount} songs',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: screenHeight * 0.018,
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-          trailing: PopupMenuButton<String>(
-            icon: Icon(
-              Icons.more_vert,
-              size: screenHeight * 0.025,
-              color: Theme.of(context).highlightColor,
-            ),
-            onSelected: (value) {
-              if (value == 'edit') {
-                _showEditPlaylistDialog(context);
-              } else if (value == 'delete') {
-                _showDeleteConfirmationDialog(context);
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              PopupMenuItem<String>(
-                value: 'edit',
-                child: Text('Edit'),
+              SizedBox(width: screenWidth * 0.03),
+              // Thông tin playlist
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.playlist.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontSize: screenHeight * 0.022,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    SizedBox(height: screenHeight * 0.005),
+                    Opacity(
+                      opacity: 0.7,
+                      child: Text(
+                        '${widget.ownerName} • ${widget.songCount} songs',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontSize: screenHeight * 0.016,
+                              color: Colors.white70,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              PopupMenuItem<String>(
-                value: 'delete',
-                child: Text('Delete'),
+              // Nút menu
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
+                  size: screenHeight * 0.025,
+                  color: Colors.white,
+                ),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditPlaylistDialog(context);
+                  } else if (value == 'delete') {
+                    _showDeleteConfirmationDialog(context);
+                  } else if (value == 'update_img') {
+                    _pickImage();
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  final isFavorite = widget.playlist.title == 'Favorite';
+                  if (isFavorite) {
+                    return [
+                      const PopupMenuItem<String>(
+                        value: 'update_img',
+                        child: Text('Update Image'),
+                      ),
+                    ];
+                  } else {
+                    return [
+                      const PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Text('Edit'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ];
+                  }
+                },
               ),
             ],
           ),
