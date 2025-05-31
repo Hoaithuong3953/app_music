@@ -328,119 +328,186 @@ class _AdminShowSongPageState extends State<AdminShowSongPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(song != null ? song!.title : 'Chi tiết bài hát'),
+        title: const Text('Chi tiết bài hát'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: song != null ? showEditSongDialog : null,
+            icon: const Icon(Icons.edit, color: Colors.blue),
             tooltip: 'Chỉnh sửa',
+            onPressed: () {
+              // Mở dialog chỉnh sửa
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: song != null
-                ? () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Xác nhận xóa'),
-                        content: Text('Bạn có chắc chắn muốn xóa bài hát "${song!.title}"?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Hủy'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              deleteSong();
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Xóa'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                : null,
-            tooltip: 'Xóa',
+            icon: const Icon(Icons.delete, color: Colors.red),
+            tooltip: 'Xóa bài hát',
+            onPressed: deleteSong,
           ),
         ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : isRateLimited
-              ? const Center(child: Text('Quá nhiều yêu cầu. Vui lòng thử lại sau.'))
-              : song == null
-                  ? const Center(child: Text('Không thể tải bài hát'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (song!.coverImage != null)
-                            Center(
-                              child: Image.network(
-                                song!.coverImage!,
-                                width: 150,
-                                height: 150,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => const Icon(
-                                  Icons.image_not_supported,
-                                  size: 150,
-                                ),
-                              ),
+          : song == null
+              ? const Center(child: Text('Không tìm thấy bài hát'))
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 600;
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 700),
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
                             ),
-                          const SizedBox(height: 16),
-                          Center(
-                            child: ElevatedButton.icon(
-                              onPressed: togglePlayPause,
-                              icon: Icon(
-                                isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: Colors.white,
-                              ),
-                              label: Text(
-                                isPlaying ? 'Tạm dừng' : 'Phát nhạc',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0984E3),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text('Tiêu đề: ${song!.title}', style: const TextStyle(fontSize: 16)),
-                          Text('Nghệ sĩ: ${song!.artistName ?? 'Không rõ'}', style: const TextStyle(fontSize: 16)),
-                          Text('Thể loại: ${song!.genreNames.isNotEmpty ? song!.genreNames.join(', ') : 'Không rõ'}',
-                              style: const TextStyle(fontSize: 16)),
-                          Text(
-                            'Thời lượng: ${isLoadingDuration ? 'Đang tải...' : formatDuration(songDuration)}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          Text('Lượt xem: ${song!.views}', style: const TextStyle(fontSize: 16)),
-                          Text('Điểm thịnh hành: ${song!.trendingScore}', style: const TextStyle(fontSize: 16)),
-                          Text('Số lượt thích: ${song!.likes.length}', style: const TextStyle(fontSize: 16)),
-                          Text('Ngày tạo: ${song!.createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
-                          const SizedBox(height: 24),
-                          const Text('Lời bài hát:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const Divider(),
-                          song!.lyrics != null && song!.lyrics!.isNotEmpty
-                              ? SingleChildScrollView(
-                                  child: Container(
-                                    constraints: BoxConstraints(maxHeight: 200),
-                                    child: Text(
-                                      song!.lyrics!,
-                                      style: const TextStyle(fontSize: 14),
-                                      overflow: TextOverflow.fade,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // Ảnh bìa
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black12,
+                                          blurRadius: 12,
+                                          offset: Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Image.network(
+                                        song!.coverImage ?? '',
+                                        width: isWide ? 220 : 160,
+                                        height: isWide ? 220 : 160,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            Container(
+                                          width: isWide ? 220 : 160,
+                                          height: isWide ? 220 : 160,
+                                          color: Colors.grey[200],
+                                          child: const Icon(Icons.music_note, size: 80),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                )
-                              : const Text('Không có lời bài hát', style: TextStyle(fontSize: 14)),
-                        ],
+                                  const SizedBox(height: 24),
+                                  // Tên bài hát
+                                  Text(
+                                    song!.title,
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  // Nghệ sĩ
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.person, size: 20, color: Colors.blue),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          song!.artistName ?? 'Không rõ nghệ sĩ',
+                                          style: const TextStyle(fontSize: 16),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Thể loại
+                                  if (song!.genreNames.isNotEmpty)
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.category, size: 20, color: Colors.deepPurple),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            song!.genreNames.join(', '),
+                                            style: const TextStyle(fontSize: 15, color: Colors.deepPurple),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  const SizedBox(height: 8),
+                                  // Ngày tạo
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Tạo ngày ${song!.createdAt.day}/${song!.createdAt.month}/${song!.createdAt.year}',
+                                        style: const TextStyle(fontSize: 15, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Lượt thích
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.favorite, size: 18, color: Colors.red),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Lượt thích: ${song!.likes.length}',
+                                        style: const TextStyle(fontSize: 15, color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+                                  // Nút phát nhạc
+                                  ElevatedButton.icon(
+                                    icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
+                                    label: Text(isPlaying ? 'Tạm dừng' : 'Phát nhạc'),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      textStyle: const TextStyle(fontSize: 18),
+                                    ),
+                                    onPressed: togglePlayPause,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Thời lượng
+                                  Text(
+                                    'Thời lượng: ${formatDuration(songDuration)}',
+                                    style: const TextStyle(fontSize: 15, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  // Lời bài hát
+                                  if (song!.lyrics != null && song!.lyrics!.isNotEmpty)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        song!.lyrics!,
+                                        style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    );
+                  },
+                ),
     );
   }
 }

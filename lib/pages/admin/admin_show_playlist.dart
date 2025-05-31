@@ -208,13 +208,14 @@ class _AdminShowPlaylistPageState extends State<AdminShowPlaylistPage> {
         });
       } else {
         final song = songs[currentSongIndex]['song'] as Song;
-        if (song.url == null) {
+        final songUrl = _getValidSongUrl(song.url);
+        if (songUrl == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Không có URL để phát bài hát')),
           );
           return;
         }
-        await _audioPlayer.play(UrlSource(song.url!));
+        await _audioPlayer.play(UrlSource(songUrl));
         setState(() {
           isPlaying = true;
         });
@@ -238,13 +239,14 @@ class _AdminShowPlaylistPageState extends State<AdminShowPlaylistPage> {
   Future<void> playSong(int index) async {
     try {
       final song = songs[index]['song'] as Song;
-      if (song.url == null) {
+      final songUrl = _getValidSongUrl(song.url);
+      if (songUrl == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Không có URL để phát bài hát')),
         );
         return;
       }
-      await _audioPlayer.play(UrlSource(song.url!));
+      await _audioPlayer.play(UrlSource(songUrl));
       setState(() {
         currentSongIndex = index;
         isPlaying = true;
@@ -264,21 +266,50 @@ class _AdminShowPlaylistPageState extends State<AdminShowPlaylistPage> {
     }
   }
 
+  // Hàm xử lý URL bài hát
+  String? _getValidSongUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+
+    // Nếu URL đã là URL đầy đủ
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    // Nếu URL là đường dẫn tương đối, thêm base URL
+    final baseUrl = _apiClient.baseUrl;
+    if (url.startsWith('/')) {
+      return '$baseUrl$url';
+    }
+    return '$baseUrl/$url';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: Text(playlist != null ? playlist!.title : 'Chi tiết playlist'),
+        title: Text(
+          playlist != null ? playlist!.title : 'Chi tiết Playlist',
+          style: const TextStyle(
+            color: Color(0xFF2D3436),
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0984E3)),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF0984E3)),
             onPressed: addSongsToPlaylist,
             tooltip: 'Thêm bài hát',
           ),
           IconButton(
-            icon: const Icon(Icons.delete),
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
             onPressed: playlist != null
                 ? () {
                     showDialog(
@@ -286,16 +317,23 @@ class _AdminShowPlaylistPageState extends State<AdminShowPlaylistPage> {
                       builder: (context) => AlertDialog(
                         title: const Text('Xác nhận xóa'),
                         content: Text('Bạn có chắc chắn muốn xóa "${playlist!.title}"?'),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: const Text('Hủy'),
                           ),
-                          TextButton(
+                          ElevatedButton(
                             onPressed: () {
                               deletePlaylist();
                               Navigator.pop(context);
                             },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
                             child: const Text('Xóa'),
                           ),
                         ],
@@ -308,111 +346,240 @@ class _AdminShowPlaylistPageState extends State<AdminShowPlaylistPage> {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3)),
+              ),
+            )
           : playlist == null
-              ? const Center(child: Text('Không thể tải playlist'))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Không tìm thấy playlist',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (playlist!.coverImageURL != null)
-                        Center(
-                          child: Image.network(
-                            playlist!.coverImageURL!,
-                            width: 150,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                      const SizedBox(height: 16),
-                      // Nút phát toàn bộ playlist
-                      Center(
-                        child: ElevatedButton.icon(
-                          onPressed: playPlaylist,
-                          icon: Icon(
-                            isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                          ),
-                          label: Text(
-                            isPlaying ? 'Tạm dừng' : 'Phát toàn bộ playlist',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0984E3),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Tên: ${playlist!.title}', style: const TextStyle(fontSize: 16)),
-                      Opacity(
-                        opacity: 0.6,
-                        child: Text(
-                          'Người tạo: ${userName ?? 'Người dùng không xác định'}',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                      Text('Công khai: ${playlist!.isPublic ? 'Có' : 'Không'}', style: const TextStyle(fontSize: 16)),
-                      Text('Ngày tạo: ${playlist!.createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
-                      const SizedBox(height: 24),
-                      const Text('Danh sách bài hát:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Divider(),
-                      songs.isEmpty
-                          ? const Center(child: Text('Không có bài hát nào trong playlist này'))
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: songs.length,
-                              itemBuilder: (context, index) {
-                                final entry = songs[index];
-                                final song = entry['song'] as Song;
-                                final artistName = entry['artistName'] as String;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: SongTile(
-                                        song: song,
-                                        artistName: artistName,
-                                        index: index + 1,
-                                        onTap: () => playSong(index),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              if (playlist!.coverImageURL?.isNotEmpty ?? false)
+                                Hero(
+                                  tag: 'playlist-${playlist!.id}',
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.network(
+                                      playlist!.coverImageURL!,
+                                      width: 200,
+                                      height: 200,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        width: 200,
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: const Icon(
+                                          Icons.music_note,
+                                          size: 50,
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Xác nhận xóa'),
-                                            content: Text('Bạn có chắc chắn muốn xóa "${song.title}" khỏi playlist này?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Hủy'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  removeSongFromPlaylist(song.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Xóa'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
+                                  ),
+                                ),
+                              const SizedBox(height: 20),
+                              if (songs.isNotEmpty)
+                                ElevatedButton.icon(
+                                  onPressed: playPlaylist,
+                                  icon: Icon(
+                                    isPlaying ? Icons.pause : Icons.play_arrow,
+                                    color: Colors.white,
+                                  ),
+                                  label: Text(
+                                    isPlaying ? 'Tạm dừng' : 'Phát toàn bộ playlist',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0984E3),
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                  ],
-                                );
-                              },
-                            ),
+                                  ),
+                                ),
+                              const SizedBox(height: 20),
+                              _buildInfoRow(Icons.title, 'Tên playlist', playlist!.title),
+                              const SizedBox(height: 10),
+                              _buildInfoRow(
+                                Icons.person,
+                                'Người tạo',
+                                userName ?? 'Người dùng không xác định',
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoRow(
+                                Icons.visibility,
+                                'Trạng thái',
+                                playlist!.isPublic ? 'Công khai' : 'Riêng tư',
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoRow(
+                                Icons.calendar_today,
+                                'Ngày tạo',
+                                playlist!.createdAt.toLocal().toString(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('Danh sách bài hát', Icons.music_note),
+                      const Divider(height: 1),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: songs.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(
+                                  child: Text(
+                                    'Không có bài hát nào trong playlist này',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: songs.length,
+                                itemBuilder: (context, index) {
+                                  final entry = songs[index];
+                                  final song = entry['song'] as Song;
+                                  final artistName = entry['artistName'] as String;
+                                  return Dismissible(
+                                    key: Key(song.id),
+                                    background: Container(
+                                      color: Colors.red,
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 20),
+                                      child: const Icon(Icons.delete, color: Colors.white),
+                                    ),
+                                    direction: DismissDirection.endToStart,
+                                    confirmDismiss: (direction) async {
+                                      return await showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Xác nhận xóa'),
+                                          content: Text(
+                                              'Bạn có chắc chắn muốn xóa "${song.title}" khỏi playlist này?'),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(15),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context, false),
+                                              child: const Text('Hủy'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () => Navigator.pop(context, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              child: const Text('Xóa'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                    onDismissed: (direction) {
+                                      removeSongFromPlaylist(song.id);
+                                    },
+                                    child: SongTile(
+                                      song: song,
+                                      artistName: artistName,
+                                      index: index + 1,
+                                      onTap: () => playSong(index),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF0984E3)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF0984E3)),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

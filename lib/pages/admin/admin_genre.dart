@@ -86,8 +86,8 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       await _genreService.createGenre(
         title: genreData['title'],
-        description: '',
-        coverImageFile: coverFile, // Truyền PlatformFile thay vì path
+        description: genreData['description'],
+        coverImageFile: coverFile,
         token: userProvider.user?.token,
       );
       ScaffoldMessenger.of(context).showSnackBar(
@@ -96,7 +96,10 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
       fetchGenres();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
+        SnackBar(
+          content: Text('Lỗi: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -142,6 +145,7 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
 
   void showCreateGenreDialog() {
     final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
     PlatformFile? coverFile;
 
     showDialog(
@@ -154,19 +158,40 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Tên thể loại'),
+                decoration: const InputDecoration(
+                  labelText: 'Tên thể loại',
+                  hintText: 'Nhập tên thể loại',
+                ),
               ),
-              ElevatedButton(
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Mô tả',
+                  hintText: 'Nhập mô tả thể loại',
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
                 onPressed: () async {
-                  FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
+                  FilePickerResult? result = await FilePicker.platform.pickFiles(
+                    type: FileType.image,
+                    allowMultiple: false,
+                  );
                   if (result != null) {
-                    coverFile = result.files.single; // Lưu PlatformFile
+                    coverFile = result.files.single;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Đã chọn ảnh bìa')),
                     );
                   }
                 },
-                child: const Text('Chọn ảnh bìa'),
+                icon: const Icon(Icons.image),
+                label: const Text('Chọn ảnh bìa'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),
@@ -176,7 +201,7 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Hủy'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               if (titleController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -184,12 +209,23 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                 );
                 return;
               }
+              if (descriptionController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Vui lòng nhập mô tả thể loại')),
+                );
+                return;
+              }
               final genreData = {
                 'title': titleController.text,
+                'description': descriptionController.text,
               };
               createGenre(genreData, coverFile);
               Navigator.pop(context);
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Tạo'),
           ),
         ],
@@ -288,15 +324,27 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
         padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 0, screenWidth * 0.04, 0),
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Tìm kiếm theo tiêu đề thể loại',
                   prefixIcon: const Icon(Icons.search, color: Color(0xFF0984E3)),
                   filled: true,
-                  fillColor: const Color(0xFFF5F6FA),
+                  fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -311,39 +359,57 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                       child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0984E3))))
                   : errorMessage != null
-                      ? Center(child: Text('Lỗi: $errorMessage', style: const TextStyle(color: Colors.red)))
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Lỗi: $errorMessage',
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        )
                       : filteredGenres.isEmpty
-                          ? Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.category, size: 64, color: Colors.grey[400]),
-                                const SizedBox(height: 16),
-                                const Text('Không có thể loại nào',
-                                    style: TextStyle(fontSize: 18, color: Color(0xFF636E72))),
-                              ],
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.category, size: 64, color: Colors.grey[400]),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Không có thể loại nào',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             )
                           : ListView.separated(
                               itemCount: filteredGenres.length,
-                              separatorBuilder: (context, idx) => const SizedBox(height: 16),
+                              separatorBuilder: (context, idx) => const SizedBox(height: 12),
                               itemBuilder: (context, index) {
                                 final entry = filteredGenres[index];
                                 final genre = entry['genre'] as Genre;
                                 return Card(
-                                  elevation: 1,
+                                  elevation: 2,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: InkWell(
                                     onTap: () {
                                       if (genre.id.isNotEmpty) {
-                                        print('Navigating to genre with ID: ${genre.id}');
                                         Navigator.pushNamed(
                                           context,
                                           '/admin/genre/:gid',
                                           arguments: genre.id,
                                         );
                                       } else {
-                                        print('Invalid genre ID');
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           const SnackBar(content: Text('Invalid genre ID')),
                                         );
@@ -351,30 +417,41 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                                     },
                                     borderRadius: BorderRadius.circular(16),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                      padding: const EdgeInsets.all(16),
                                       child: Row(
                                         children: [
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: (genre.coverImage.isNotEmpty)
-                                                ? Image.network(
-                                                    genre.coverImage,
-                                                    width: 56,
-                                                    height: 56,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context, error, stackTrace) => Container(
-                                                      width: 56,
-                                                      height: 56,
+                                          Hero(
+                                            tag: 'genre-${genre.id}',
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: (genre.coverImage.isNotEmpty)
+                                                  ? Image.network(
+                                                      genre.coverImage,
+                                                      width: 80,
+                                                      height: 80,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) => Container(
+                                                        width: 80,
+                                                        height: 80,
+                                                        color: Colors.grey[200],
+                                                        child: Icon(
+                                                          Icons.category,
+                                                          size: 32,
+                                                          color: Colors.grey[400],
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : Container(
+                                                      width: 80,
+                                                      height: 80,
                                                       color: Colors.grey[200],
-                                                      child: const Icon(Icons.category),
+                                                      child: Icon(
+                                                        Icons.category,
+                                                        size: 32,
+                                                        color: Colors.grey[400],
+                                                      ),
                                                     ),
-                                                  )
-                                                : Container(
-                                                    width: 56,
-                                                    height: 56,
-                                                    color: Colors.grey[200],
-                                                    child: const Icon(Icons.category),
-                                                  ),
+                                            ),
                                           ),
                                           const SizedBox(width: 16),
                                           Expanded(
@@ -385,41 +462,74 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                                                   genre.title,
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
+                                                    fontSize: 18,
                                                     color: Color(0xFF2D3436),
                                                   ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  genre.description,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.music_note,
+                                                      size: 16,
+                                                      color: Theme.of(context).primaryColor,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '${entry['songCount']} bài hát',
+                                                      style: TextStyle(
+                                                        color: Theme.of(context).primaryColor,
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
                                           ),
                                           IconButton(
-                                            icon: const Icon(Icons.edit, color: Color(0xFF0984E3)),
+                                            icon: const Icon(Icons.edit_outlined),
+                                            color: Theme.of(context).primaryColor,
                                             onPressed: () => showEditGenreDialog(genre),
                                           ),
                                           IconButton(
-                                            icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                            icon: const Icon(Icons.delete_outline),
+                                            color: Colors.red,
                                             onPressed: () {
                                               showDialog(
                                                 context: context,
                                                 builder: (context) => AlertDialog(
+                                                  title: const Text('Xác nhận xóa'),
+                                                  content: Text('Bạn có chắc chắn muốn xóa thể loại "${genre.title}"?'),
                                                   shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(16)),
-                                                  title: const Text('Xác nhận xóa',
-                                                      style: TextStyle(fontWeight: FontWeight.bold)),
-                                                  content:
-                                                      Text('Bạn có chắc chắn muốn xóa thể loại "${genre.title}"?'),
+                                                    borderRadius: BorderRadius.circular(15),
+                                                  ),
                                                   actions: [
                                                     TextButton(
                                                       onPressed: () => Navigator.pop(context),
                                                       child: const Text('Hủy'),
                                                     ),
-                                                    TextButton(
+                                                    ElevatedButton(
                                                       onPressed: () {
                                                         deleteGenre(genre.id);
                                                         Navigator.pop(context);
                                                       },
-                                                      child:
-                                                          const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.red,
+                                                        foregroundColor: Colors.white,
+                                                      ),
+                                                      child: const Text('Xóa'),
                                                     ),
                                                   ],
                                                 ),
@@ -434,37 +544,66 @@ class _AdminGenrePageState extends State<AdminGenrePage> {
                               },
                             ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: currentPage > 1
-                        ? () {
-                            setState(() {
-                              currentPage--;
-                            });
-                            fetchGenres();
-                          }
-                        : null,
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Text('Trang $currentPage / ${(totalCount / limit).ceil()}'),
-                  IconButton(
-                    onPressed: currentPage < (totalCount / limit).ceil()
-                        ? () {
-                            setState(() {
-                              currentPage++;
-                            });
-                            fetchGenres();
-                          }
-                        : null,
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
+            if (!isLoading && filteredGenres.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: currentPage > 1
+                          ? () {
+                              setState(() {
+                                currentPage--;
+                              });
+                              fetchGenres();
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_left),
+                      color: currentPage > 1 ? Theme.of(context).primaryColor : Colors.grey,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Trang $currentPage / ${(totalCount / limit).ceil()}',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: currentPage < (totalCount / limit).ceil()
+                          ? () {
+                              setState(() {
+                                currentPage++;
+                              });
+                              fetchGenres();
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_right),
+                      color: currentPage < (totalCount / limit).ceil()
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey,
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),

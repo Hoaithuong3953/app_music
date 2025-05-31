@@ -176,14 +176,21 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(genre != null ? genre!.title : 'Genre Details'),
+        title: Text(
+          genre != null ? genre!.title : 'Genre Details',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Add Songs',
             onPressed: addSongsToGenre,
           ),
           IconButton(
-            icon: const Icon(Icons.delete),
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete Genre',
             onPressed: genre != null
                 ? () {
                     showDialog(
@@ -191,16 +198,23 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
                       builder: (context) => AlertDialog(
                         title: const Text('Confirm Delete'),
                         content: Text('Are you sure you want to delete ${genre!.title}?'),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: const Text('Cancel'),
                           ),
-                          TextButton(
+                          ElevatedButton(
                             onPressed: () {
                               deleteGenre();
                               Navigator.pop(context);
                             },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
                             child: const Text('Delete'),
                           ),
                         ],
@@ -214,7 +228,16 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : errorMessage != null
-              ? Center(child: Text('Error: $errorMessage'))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Error: $errorMessage', style: const TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                )
               : genre == null
                   ? const Center(child: Text('Failed to load genre'))
                   : SingleChildScrollView(
@@ -222,125 +245,238 @@ class _AdminShowGenrePageState extends State<AdminShowGenrePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (genre!.coverImage.isNotEmpty)
-                            Center(
-                              child: Image.network(
-                                genre!.coverImage,
-                                width: 150,
-                                height: 150,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => const Icon(
-                                  Icons.image_not_supported,
-                                  size: 150,
-                                ),
-                              ),
+                          Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
                             ),
-                          const SizedBox(height: 16),
-                          Text('Title: ${genre!.title}', style: const TextStyle(fontSize: 16)),
-                          Text('Description: ${genre!.description}',
-                              style: const TextStyle(fontSize: 16)),
-                          Text('Created At: ${genre!.createdAt.toLocal()}',
-                              style: const TextStyle(fontSize: 16)),
-                          const SizedBox(height: 24),
-                          const Text('Artists:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const Divider(),
-                          artists.isEmpty
-                              ? const Center(child: Text('No artists in this genre'))
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: artists.length,
-                                  itemBuilder: (context, index) {
-                                    final artist = artists[index];
-                                    return ListTile(
-                                      title: Text(artist['title'] ?? 'Unknown Artist'),
-                                      onTap: () {
-                                        // Điều hướng đến trang chi tiết nghệ sĩ nếu cần
-                                      },
-                                    );
-                                  },
-                                ),
-                          const SizedBox(height: 24),
-                          const Text('Songs:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const Divider(),
-                          songs.isEmpty
-                              ? const Center(child: Text('No songs in this genre'))
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: songs.length,
-                                  itemBuilder: (context, index) {
-                                    final song = songs[index];
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          child: SongTile(
-                                            song: Song(
-                                              id: song['id'] ?? '',
-                                              title: song['title'] ?? '',
-                                              description: '',
-                                              lyrics: '',
-                                              artist: song['artistName'] ?? 'Unknown Artist',
-                                              album: '',
-                                              genre: [],
-                                              duration: '',
-                                              slugify: '',
-                                              url: '',
-                                              coverImage: '',
-                                              views: 0,
-                                              dailyViews: 0,
-                                              weeklyViews: 0,
-                                              trendingScore: 0,
-                                              lastReset: DateTime.now(),
-                                              likes: [],
-                                              dislikes: [],
-                                              comments: [],
-                                              isPublic: true,
-                                              createdAt: DateTime.now(),
-                                              updatedAt: DateTime.now(),
-                                            ),
-                                            artistName: song['artistName'] ?? 'Unknown Artist',
-                                            index: index + 1,
-                                            onTap: () => Navigator.pushNamed(
-                                              context,
-                                              '/admin/song/:sid',
-                                              arguments: song['id'],
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: [
+                                  if (genre!.coverImage.isNotEmpty)
+                                    Hero(
+                                      tag: 'genre-${genre!.id}',
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Image.network(
+                                          genre!.coverImage,
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Container(
+                                            width: 200,
+                                            height: 200,
+                                            color: Colors.grey[300],
+                                            child: const Icon(
+                                              Icons.image_not_supported,
+                                              size: 50,
+                                              color: Colors.grey,
                                             ),
                                           ),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete, color: Colors.red),
-                                          onPressed: () {
-                                            showDialog(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                title: const Text('Confirm Remove'),
-                                                content: Text(
-                                                    'Are you sure you want to remove ${song['title']} from this genre?'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      removeSongFromGenre(song['id'] ?? '');
-                                                      Navigator.pop(context);
-                                                    },
-                                                    child: const Text('Remove'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
+                                      ),
+                                    ),
+                                  const SizedBox(height: 20),
+                                  _buildInfoRow(Icons.title, 'Title', genre!.title),
+                                  const SizedBox(height: 10),
+                                  _buildInfoRow(Icons.description, 'Description', genre!.description),
+                                  const SizedBox(height: 10),
+                                  _buildInfoRow(
+                                    Icons.calendar_today,
+                                    'Created At',
+                                    genre!.createdAt.toLocal().toString(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSectionHeader('Artists', Icons.person),
+                          const Divider(height: 1),
+                          Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: artists.isEmpty
+                                ? const Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Center(child: Text('No artists in this genre')),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: artists.length,
+                                    itemBuilder: (context, index) {
+                                      final artist = artists[index];
+                                      return ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: Theme.of(context).primaryColor,
+                                          child: Text(
+                                            (artist['title'] ?? '?')[0].toUpperCase(),
+                                            style: const TextStyle(color: Colors.white),
+                                          ),
                                         ),
-                                      ],
-                                    );
-                                  },
-                                ),
+                                        title: Text(
+                                          artist['title'] ?? 'Unknown Artist',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        trailing: const Icon(Icons.chevron_right),
+                                        onTap: () {
+                                          // Navigation logic here
+                                        },
+                                      );
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSectionHeader('Songs', Icons.music_note),
+                          const Divider(height: 1),
+                          Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: songs.isEmpty
+                                ? const Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Center(child: Text('No songs in this genre')),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: songs.length,
+                                    itemBuilder: (context, index) {
+                                      final song = songs[index];
+                                      return Dismissible(
+                                        key: Key(song['id'] ?? ''),
+                                        background: Container(
+                                          color: Colors.red,
+                                          alignment: Alignment.centerRight,
+                                          padding: const EdgeInsets.only(right: 20),
+                                          child: const Icon(Icons.delete, color: Colors.white),
+                                        ),
+                                        direction: DismissDirection.endToStart,
+                                        confirmDismiss: (direction) async {
+                                          return await showDialog(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: const Text('Confirm Remove'),
+                                              content: Text(
+                                                  'Are you sure you want to remove ${song['title']} from this genre?'),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(15),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context, false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.pop(context, true),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                    foregroundColor: Colors.white,
+                                                  ),
+                                                  child: const Text('Remove'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                        onDismissed: (direction) {
+                                          removeSongFromGenre(song['id'] ?? '');
+                                        },
+                                        child: SongTile(
+                                          song: Song(
+                                            id: song['id'] ?? '',
+                                            title: song['title'] ?? '',
+                                            description: '',
+                                            lyrics: '',
+                                            artist: song['artistName'] ?? 'Unknown Artist',
+                                            album: '',
+                                            genre: [],
+                                            duration: '',
+                                            slugify: '',
+                                            url: '',
+                                            coverImage: '',
+                                            views: 0,
+                                            dailyViews: 0,
+                                            weeklyViews: 0,
+                                            trendingScore: 0,
+                                            lastReset: DateTime.now(),
+                                            likes: [],
+                                            dislikes: [],
+                                            comments: [],
+                                            isPublic: true,
+                                            createdAt: DateTime.now(),
+                                            updatedAt: DateTime.now(),
+                                          ),
+                                          artistName: song['artistName'] ?? 'Unknown Artist',
+                                          index: index + 1,
+                                          onTap: () => Navigator.pushNamed(
+                                            context,
+                                            '/admin/song/:sid',
+                                            arguments: song['id'],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: Theme.of(context).primaryColor),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
