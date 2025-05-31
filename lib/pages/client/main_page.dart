@@ -6,6 +6,7 @@ import './library_page.dart';
 import './profile_page.dart';
 import './playlist_detail_page.dart';
 import './search_page.dart';
+import './all_songs_page.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -31,7 +32,6 @@ class _MainPageState extends State<MainPage> {
     '/player-page',
     '/edit-profile',
     '/change-password',
-    '/all-songs',
   ];
 
   void _onItemTapped(int index) {
@@ -56,14 +56,10 @@ class _MainPageState extends State<MainPage> {
                 onGenerateRoute: (settings) {
                   Widget page;
                   final routeName = settings.name;
+                  
+                  // Nếu là fullScreenRoute, không xử lý ở đây
                   if (routeName != null && _fullScreenRoutes.contains(routeName)) {
-                    // Trả về một Scaffold rỗng để tránh lỗi
-                    return MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        body: Center(child: Text('Loading...')),
-                      ),
-                      settings: settings,
-                    );
+                    return null; // Để route được xử lý bởi MaterialApp chính
                   }
 
                   switch (routeName) {
@@ -86,6 +82,9 @@ class _MainPageState extends State<MainPage> {
                       break;
                     case '/search':
                       page = SearchPage();
+                      break;
+                    case '/all-songs':
+                      page = AllSongsPage();
                       break;
                     default:
                       page = HomePage();

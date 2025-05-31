@@ -313,26 +313,31 @@ class UserService {
           throw Exception('No access token found');
         }
 
-        final response = await _apiClient.post(
-          'user/upgrade-premium',
+        // Xóa cache trước khi gọi API
+        final url = '${_apiClient.baseUrl}/user/upgrade-to-premium';
+        final cacheKey = 'POST:$url:{duration: $duration}';
+        await prefs.remove(cacheKey);
+        await prefs.remove('${cacheKey}_timestamp');
+
+        dynamic response = await _apiClient.post(
+          'user/upgrade-to-premium',
           {'duration': duration},
           token: accessToken,
         );
 
-        if (response['success'] == true) {
+        print('Response type: [33m${response.runtimeType}[0m');
+        print('Response content: $response');
+        if (response is String) {
+          response = jsonDecode(response);
+        }
+
+        if (response is Map && response['paymentUrl'] != null && response['paymentUrl'] is String && response['paymentUrl'].toString().isNotEmpty) {
           return response['paymentUrl'] as String;
         } else {
-          throw Exception(response['message'] ?? 'Failed to upgrade to premium');
+          throw Exception(response is Map ? (response['message'] ?? 'Không nhận được link thanh toán premium') : 'Không nhận được link thanh toán premium');
         }
       } catch (e) {
-        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
-          print('Rate limit hit for upgradeToPremium, retrying ($attempt/$maxRetries)...');
-          await Future.delayed(retryDelay);
-          continue;
-        }
-        if (attempt == maxRetries) {
-          throw Exception('Failed to upgrade to premium after $maxRetries attempts: $e');
-        }
+        if (attempt == maxRetries) rethrow;
       }
     }
     throw Exception('Failed to upgrade to premium after $maxRetries attempts');
@@ -364,6 +369,39 @@ class UserService {
           await prefs.remove('user_data');
         }
       }
+    }
+  }
+
+  Future<User> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
+
+      if (accessToken == null) {
+        throw Exception('No access token found');
+      }
+
+      final response = await _apiClient.put(
+        'user/change-password',
+        {
+          'oldPassword': oldPassword,
+          'newPassword': newPassword,
+        },
+        token: accessToken,
+      );
+
+      if (response['success'] == true) {
+        final userData = response['user'] as Map<String, dynamic>;
+        userData['token'] = accessToken;
+        return User.fromJson(userData);
+      } else {
+        throw Exception(response['message'] ?? 'Failed to change password');
+      }
+    } catch (e) {
+      throw Exception('Failed to change password: $e');
     }
   }
 } 

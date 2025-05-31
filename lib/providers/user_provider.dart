@@ -105,25 +105,16 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<void> changePassword({
-    required String oldPassword, // Giữ tham số để tương thích với frontend
+    required String oldPassword,
     required String newPassword,
   }) async {
-    if (_user == null || _user!.email == null) {
+    if (_user == null) {
       throw Exception('User not logged in');
     }
 
-    // Hiện tại backend không kiểm tra oldPassword, nên không cần gọi login để xác minh
-    // Khi backend hỗ trợ kiểm tra oldPassword, bạn có thể thêm lại logic sau:
-    /*
-    try {
-      await _userService.login(_user!.email!, oldPassword);
-    } catch (e) {
-      throw Exception('Old password is incorrect');
-    }
-    */
-
-    final updatedUser = await _userService.updateUser(
-      password: newPassword,
+    final updatedUser = await _userService.changePassword(
+      oldPassword: oldPassword,
+      newPassword: newPassword,
     );
     _user = updatedUser;
 
@@ -134,13 +125,14 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _userService.logout();
     _user = null;
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');
     await prefs.remove('user_data');
-
     notifyListeners();
+  }
+
+  Future<String> upgradeToPremium(String duration) async {
+    return await _userService.upgradeToPremium(duration);
   }
 }

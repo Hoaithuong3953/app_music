@@ -8,6 +8,8 @@ import '../../config/validator.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class EditProfilePage extends StatefulWidget {
+  const EditProfilePage({Key? key}) : super(key: key);
+
   @override
   _EditProfilePageState createState() => _EditProfilePageState();
 }
@@ -27,21 +29,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _controllersInitialized = false;
 
   @override
+  void initState() {
+    super.initState();
+    print('EditProfilePage initState called');
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    print('EditProfilePage didChangeDependencies called');
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.user;
+    print('User in didChangeDependencies: $user');
+    
     if (!_controllersInitialized && user != null) {
       _firstNameController = TextEditingController(text: user.firstName ?? '');
       _lastNameController = TextEditingController(text: user.lastName ?? '');
       _emailController = TextEditingController(text: user.email ?? '');
       _mobileController = TextEditingController(text: user.mobile ?? '');
       _controllersInitialized = true;
+      print('Controllers initialized');
     }
   }
 
   @override
   void dispose() {
+    print('EditProfilePage dispose called');
     _firstNameController?.dispose();
     _lastNameController?.dispose();
     _emailController?.dispose();
@@ -70,7 +83,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<void> _pickImage() async {
     if (kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chức năng chọn ảnh chỉ hỗ trợ trên mobile/desktop.')),
+        const SnackBar(content: Text('Chức năng chọn ảnh chỉ hỗ trợ trên mobile/desktop.')),
       );
       return;
     }
@@ -78,147 +91,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
-      final tempImage = File(pickedFile.path);
-      bool tempRemoveAvatar = false;
-
-      // Hiển thị popup điều chỉnh ảnh
-      await showDialog(
-        context: context,
-        builder: (context) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final screenHeight = MediaQuery.of(context).size.height;
-          final dialogWidth = screenWidth * 0.9;
-          final dialogHeight = screenHeight * 0.6;
-          final previewSize = dialogWidth * 0.5;
-          double scale = 1.0;
-          double dx = 0.0;
-          double dy = 0.0;
-
-          return Dialog(
-            child: Container(
-              width: dialogWidth,
-              height: dialogHeight,
-              padding: EdgeInsets.all(16),
-              child: StatefulBuilder(
-                builder: (context, setDialogState) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Adjust Avatar',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Expanded(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Ảnh gốc mờ làm nền
-                            Positioned.fill(
-                              child: Opacity(
-                                opacity: 0.3,
-                                child: Transform(
-                                  transform: Matrix4.identity()
-                                    ..scale(scale)
-                                    ..translate(dx, dy),
-                                  child: Image.file(
-                                    tempImage,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Vùng điều chỉnh hình tròn trong suốt
-                            Material(
-                              color: Colors.transparent,
-                              child: GestureDetector(
-                                onScaleUpdate: (details) {
-                                  setDialogState(() {
-                                    scale = details.scale.clamp(0.5, 4.0);
-                                    dx += details.focalPointDelta.dx / scale;
-                                    dy += details.focalPointDelta.dy / scale;
-                                  });
-                                },
-                                child: Container(
-                                  width: previewSize,
-                                  height: previewSize,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.black54, width: 2),
-                                  ),
-                                  child: ClipOval(
-                                    child: Transform(
-                                      transform: Matrix4.identity()
-                                        ..scale(scale)
-                                        ..translate(dx, dy),
-                                      child: Image.file(
-                                        tempImage,
-                                        fit: BoxFit.cover,
-                                        width: previewSize,
-                                        height: previewSize,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              tempRemoveAvatar = true;
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              'Remove',
-                              style: TextStyle(color: Colors.red, fontSize: 16),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              'Cancel',
-                              style: TextStyle(color: Colors.grey, fontSize: 16),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              setState(() {
-                                if (!tempRemoveAvatar) {
-                                  _selectedImage = tempImage;
-                                  _removeAvatar = false;
-                                } else {
-                                  _selectedImage = null;
-                                  _removeAvatar = true;
-                                }
-                              });
-                            },
-                            child: Text(
-                              'Done',
-                              style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 16),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          );
-        },
-      );
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+        _removeAvatar = false;
+      });
     }
   }
 
@@ -245,17 +121,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
         mobile: _mobileController?.text.trim() ?? '',
       );
 
-      showDialog(
-        context: context,
-        builder: (context) => CustomAlertDialog(
-          isSuccess: true,
-          title: 'Success',
-          message: 'Profile updated successfully.',
-          autoDismiss: true,
-          autoDismissDuration: Duration(seconds: 2),
-          onConfirm: () => Navigator.pop(context),
-        ),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => CustomAlertDialog(
+            isSuccess: true,
+            title: 'Success',
+            message: 'Profile updated successfully.',
+            autoDismiss: true,
+            autoDismissDuration: const Duration(seconds: 2),
+            onConfirm: () => Navigator.pop(context),
+          ),
+        );
+      }
     } catch (e) {
       String error = e.toString();
       if (error.contains("Email already exists")) {
@@ -267,71 +145,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
       } else {
         error = "Failed to update profile. Please try again.";
       }
-      showDialog(
-        context: context,
-        builder: (context) => CustomAlertDialog(
-          isSuccess: false,
-          title: 'Error',
-          message: error,
-          autoDismiss: true,
-          autoDismissDuration: Duration(seconds: 4),
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  InputDecoration _buildInputDecoration(
-      BuildContext context,
-      String labelText,
-      IconData icon, {
-        bool isRequired = false,
-      }) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    return InputDecoration(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            labelText,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: screenHeight * 0.018,
-              color: Colors.black54,
-            ),
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => CustomAlertDialog(
+            isSuccess: false,
+            title: 'Error',
+            message: error,
+            autoDismiss: true,
+            autoDismissDuration: const Duration(seconds: 4),
           ),
-          if (isRequired)
-            Text(
-              ' *',
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: screenHeight * 0.018,
-              ),
-            ),
-        ],
-      ),
-      prefixIcon: Icon(
-        icon,
-        color: Theme.of(context).primaryColor,
-      ),
-      filled: true,
-      fillColor: Theme.of(context).scaffoldBackgroundColor,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.secondary,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: Theme.of(context).primaryColor,
-          width: 2,
-        ),
-      ),
-    );
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -343,10 +175,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final user = userProvider.user;
 
     if (user == null || !_controllersInitialized) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('Edit Profile'),
-        ),
+      return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
         ),
@@ -390,36 +219,36 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       child: ClipOval(
                         child: _selectedImage != null && !kIsWeb
                             ? Image.file(
-                          _selectedImage!,
-                          fit: BoxFit.cover,
-                          width: screenHeight * 0.16,
-                          height: screenHeight * 0.16,
-                        )
-                            : (user?.avatarImgURL != null && !_removeAvatar
-                            ? Image.network(
-                          user!.avatarImgURL!,
-                          fit: BoxFit.cover,
-                          width: screenHeight * 0.16,
-                          height: screenHeight * 0.16,
-                          errorBuilder: (context, error, stackTrace) => Text(
-                            (_firstNameController?.text.isNotEmpty ?? false)
-                                ? _firstNameController!.text[0].toUpperCase()
-                                : 'U',
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              fontSize: screenHeight * 0.06,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                            : Text(
-                          (_firstNameController?.text.isNotEmpty ?? false)
-                              ? _firstNameController!.text[0].toUpperCase()
-                              : 'U',
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            fontSize: screenHeight * 0.06,
-                            color: Colors.white,
-                          ),
-                        )),
+                                _selectedImage!,
+                                fit: BoxFit.cover,
+                                width: screenHeight * 0.16,
+                                height: screenHeight * 0.16,
+                              )
+                            : (user.avatarImgURL != null && !_removeAvatar
+                                ? Image.network(
+                                    user.avatarImgURL!,
+                                    fit: BoxFit.cover,
+                                    width: screenHeight * 0.16,
+                                    height: screenHeight * 0.16,
+                                    errorBuilder: (context, error, stackTrace) => Text(
+                                      (_firstNameController?.text.isNotEmpty ?? false)
+                                          ? _firstNameController!.text[0].toUpperCase()
+                                          : 'U',
+                                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                        fontSize: screenHeight * 0.06,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    (_firstNameController?.text.isNotEmpty ?? false)
+                                        ? _firstNameController!.text[0].toUpperCase()
+                                        : 'U',
+                                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                      fontSize: screenHeight * 0.06,
+                                      color: Colors.white,
+                                    ),
+                                  )),
                       ),
                     ),
                     GestureDetector(
@@ -428,15 +257,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         radius: screenHeight * 0.02,
                         backgroundColor: Theme.of(context).highlightColor,
                         child: _isLoading
-                            ? CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        )
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              )
                             : Icon(
-                          Icons.camera_alt,
-                          size: screenHeight * 0.02,
-                          color: Colors.white,
-                        ),
+                                Icons.camera_alt,
+                                size: screenHeight * 0.02,
+                                color: Colors.white,
+                              ),
                       ),
                     ),
                   ],
@@ -448,11 +277,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     fontSize: screenHeight * 0.02,
                     color: Colors.black,
                   ),
-                  decoration: _buildInputDecoration(
-                    context,
-                    'First Name',
-                    Icons.person,
-                    isRequired: true,
+                  decoration: InputDecoration(
+                    labelText: 'First Name *',
+                    prefixIcon: Icon(
+                      Icons.person,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
                 if (_firstNameError != null) ...[
@@ -472,11 +317,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     fontSize: screenHeight * 0.02,
                     color: Colors.black,
                   ),
-                  decoration: _buildInputDecoration(
-                    context,
-                    'Last Name',
-                    Icons.person,
-                    isRequired: true,
+                  decoration: InputDecoration(
+                    labelText: 'Last Name *',
+                    prefixIcon: Icon(
+                      Icons.person,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
                 if (_lastNameError != null) ...[
@@ -496,11 +357,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     fontSize: screenHeight * 0.02,
                     color: Colors.black,
                   ),
-                  decoration: _buildInputDecoration(
-                    context,
-                    'Email',
-                    Icons.email,
-                    isRequired: true,
+                  decoration: InputDecoration(
+                    labelText: 'Email *',
+                    prefixIcon: Icon(
+                      Icons.email,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
                 if (_emailError != null) ...[
@@ -520,11 +397,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     fontSize: screenHeight * 0.02,
                     color: Colors.black,
                   ),
-                  decoration: _buildInputDecoration(
-                    context,
-                    'Mobile',
-                    Icons.phone,
-                    isRequired: true,
+                  decoration: InputDecoration(
+                    labelText: 'Mobile *',
+                    prefixIcon: Icon(
+                      Icons.phone,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
                 if (_mobileError != null) ...[
@@ -553,12 +446,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: _isLoading
                       ? const CircularProgressIndicator()
                       : Text(
-                    'Save Changes',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontSize: screenHeight * 0.02,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                          'Save Changes',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontSize: screenHeight * 0.02,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
                 SizedBox(height: screenHeight * 0.02),
               ],
