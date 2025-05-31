@@ -85,7 +85,17 @@ class AdminUserService {
     required String token,
   }) async {
     try {
-      final fields = <String, String>{
+      final request = http.MultipartRequest('POST', Uri.parse('${_apiClient.baseUrl}/user/register'));
+      
+      // Add headers
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'multipart/form-data',
+      });
+
+      // Add text fields
+      request.fields.addAll({
         'firstName': firstName,
         'lastName': lastName,
         'email': email,
@@ -93,24 +103,42 @@ class AdminUserService {
         'password': password,
         'role': role ?? 'user',
         if (address != null) 'address': address,
-      };
+      });
 
-      final files = <String, http.MultipartFile>{};
+      // Add avatar file if exists
       if (avatarFile != null) {
-        files['avatar'] = await http.MultipartFile.fromPath('avatar', avatarFile.path);
+        final fileStream = http.ByteStream(avatarFile.openRead());
+        final fileLength = await avatarFile.length();
+        final multipartFile = http.MultipartFile(
+          'avatar',
+          fileStream,
+          fileLength,
+          filename: avatarFile.path.split('/').last,
+        );
+        request.files.add(multipartFile);
       }
 
-      final response = await _apiClient.post(
-        'user/register',
-        fields,
-        files: files.isNotEmpty ? files : null,
-        token: token,
-      );
+      print('Sending create user request to: ${request.url}');
+      print('Request headers: ${request.headers}');
+      print('Request fields: ${request.fields}');
+      print('Request files: ${request.files}');
 
-      if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Tạo người dùng thất bại');
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+
+      final responseData = json.decode(response.body);
+      if (responseData['success'] != true) {
+        throw Exception(responseData['message'] ?? 'Tạo người dùng thất bại');
       }
     } catch (e) {
+      print('Error in createUser: $e');
       throw Exception('Tạo người dùng thất bại: $e');
     }
   }
@@ -130,32 +158,59 @@ class AdminUserService {
     required String token,
   }) async {
     try {
-      final fields = <String, String>{};
-      if (firstName != null) fields['firstName'] = firstName;
-      if (lastName != null) fields['lastName'] = lastName;
-      if (email != null) fields['email'] = email;
-      if (mobile != null) fields['mobile'] = mobile;
-      if (password != null) fields['password'] = password;
-      if (role != null) fields['role'] = role;
-      if (isBlocked != null) fields['isBlocked'] = isBlocked.toString();
-      if (address != null) fields['address'] = address;
+      final request = http.MultipartRequest('PUT', Uri.parse('${_apiClient.baseUrl}/user/$userId'));
+      
+      // Add headers
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'multipart/form-data',
+      });
 
-      final files = <String, http.MultipartFile>{};
+      // Add text fields
+      if (firstName != null) request.fields['firstName'] = firstName;
+      if (lastName != null) request.fields['lastName'] = lastName;
+      if (email != null) request.fields['email'] = email;
+      if (mobile != null) request.fields['mobile'] = mobile;
+      if (password != null) request.fields['password'] = password;
+      if (role != null) request.fields['role'] = role;
+      if (isBlocked != null) request.fields['isBlocked'] = isBlocked.toString();
+      if (address != null) request.fields['address'] = address;
+
+      // Add avatar file if exists
       if (avatarFile != null) {
-        files['avatar'] = await http.MultipartFile.fromPath('avatar', avatarFile.path);
+        final fileStream = http.ByteStream(avatarFile.openRead());
+        final fileLength = await avatarFile.length();
+        final multipartFile = http.MultipartFile(
+          'avatar',
+          fileStream,
+          fileLength,
+          filename: avatarFile.path.split('/').last,
+        );
+        request.files.add(multipartFile);
       }
 
-      final response = await _apiClient.put(
-        'user/$userId',
-        fields,
-        files: files.isNotEmpty ? files : null,
-        token: token,
-      );
+      print('Sending update user request to: ${request.url}');
+      print('Request headers: ${request.headers}');
+      print('Request fields: ${request.fields}');
+      print('Request files: ${request.files}');
 
-      if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Cập nhật người dùng thất bại');
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+
+      final responseData = json.decode(response.body);
+      if (responseData['success'] != true) {
+        throw Exception(responseData['message'] ?? 'Cập nhật người dùng thất bại');
       }
     } catch (e) {
+      print('Error in updateUser: $e');
       throw Exception('Cập nhật người dùng thất bại: $e');
     }
   }
@@ -166,7 +221,7 @@ class AdminUserService {
     required String token,
   }) async {
     try {
-      final response = await _apiClient.delete('user/$userId', token: token);
+      final response = await _apiClient.delete('/user/$userId', token: token);
 
       if (response['success'] != true) {
         throw Exception(response['message'] ?? 'Xóa người dùng thất bại');
