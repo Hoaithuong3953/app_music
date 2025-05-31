@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:music_player_app/config/validator.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../providers/user_provider.dart';
 import '../../service/admin/admin_user_service.dart';
 import '../../models/user.dart';
+import '../../config/validator.dart';
 
 class AdminUserPage extends StatefulWidget {
   const AdminUserPage({super.key});
@@ -25,10 +25,12 @@ class AdminUserPageState extends State<AdminUserPage> {
   int totalCount = 0;
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _selectedUserIds = {};
+  String? premiumFilter; // Biến để lưu trạng thái lọc: "all", "premium", "non-premium"
 
   @override
   void initState() {
     super.initState();
+    premiumFilter = 'all'; // Mặc định hiển thị tất cả
     fetchUsers();
     _searchController.addListener(_onSearchChanged);
   }
@@ -64,12 +66,22 @@ class AdminUserPageState extends State<AdminUserPage> {
         throw Exception('Không có token xác thực');
       }
 
+      // logic lọc Premium
+      bool? isPremiumFilter;
+      if (premiumFilter == 'premium') {
+        isPremiumFilter = true;
+      } else if (premiumFilter == 'non-premium') {
+        isPremiumFilter = false;
+      }
+
       final fetchedUsers = await _userService.getAllUsers(
         page: currentPage,
         limit: limit,
         searchQuery: searchQuery,
+        isPremium: isPremiumFilter,
         token: token,
       );
+
       setState(() {
         users = fetchedUsers;
         filteredUsers = fetchedUsers;
@@ -100,7 +112,7 @@ class AdminUserPageState extends State<AdminUserPage> {
       );
       return;
     } catch (e) {
-      throw e; // Ném lỗi để dialog xử lý
+      throw e;
     }
   }
 
@@ -468,14 +480,13 @@ class AdminUserPageState extends State<AdminUserPage> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              // Validation
                               setState(() {
                                 firstNameError = Validator.validateRequiredField(firstNameController.text, 'Họ');
                                 lastNameError = Validator.validateRequiredField(lastNameController.text, 'Tên');
                                 emailError = Validator.validateEmail(emailController.text);
                                 mobileError = Validator.validateMobile(mobileController.text);
                                 passwordError = Validator.validateRequiredField(passwordController.text, 'Mật khẩu');
-                                apiError = null; // Reset API error
+                                apiError = null;
                               });
 
                               if (firstNameError != null ||
@@ -499,7 +510,7 @@ class AdminUserPageState extends State<AdminUserPage> {
                               try {
                                 await createUser(userData, avatarFile);
                                 Navigator.pop(context);
-                                fetchUsers(); // Refresh danh sách người dùng
+                                fetchUsers();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Row(
@@ -682,6 +693,7 @@ class AdminUserPageState extends State<AdminUserPage> {
           padding: EdgeInsets.fromLTRB(screenWidth * 0.04, 24, screenWidth * 0.04, 0),
           child: Column(
             children: [
+              // Thanh tìm kiếm
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -708,6 +720,66 @@ class AdminUserPageState extends State<AdminUserPage> {
                       borderSide: BorderSide.none,
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Bộ lọc Premium
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: DropdownButton<String>(
+                  value: premiumFilter,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF0984E3)),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'all',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.filter_list, color: Color(0xFF0984E3)),
+                          const SizedBox(width: 8),
+                          const Text('Tất cả tài khoản'),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'premium',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star, color: Color(0xFFFFD700)),
+                          const SizedBox(width: 8),
+                          const Text('Tài khoản Premium'),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'non-premium',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person, color: Color(0xFF636E72)),
+                          const SizedBox(width: 8),
+                          const Text('Tài khoản thường'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      premiumFilter = value;
+                      fetchUsers();
+                    });
+                  },
                 ),
               ),
               const SizedBox(height: 24),
@@ -860,22 +932,24 @@ class AdminUserPageState extends State<AdminUserPage> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                         decoration: BoxDecoration(
-                                                          color: const Color(0xFF636E72).withOpacity(0.1),
+                                                          color: user.isPremium
+                                                              ? const Color(0xFFFFD700).withOpacity(0.1)
+                                                              : const Color(0xFF636E72).withOpacity(0.1),
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
                                                         child: Row(
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
                                                             Icon(
-                                                              Icons.calendar_today,
+                                                              user.isPremium ? Icons.star : Icons.person,
                                                               size: 14,
-                                                              color: const Color(0xFF636E72),
+                                                              color: user.isPremium ? const Color(0xFFFFD700) : const Color(0xFF636E72),
                                                             ),
                                                             const SizedBox(width: 4),
                                                             Text(
-                                                              '${user.createdAt?.day ?? 'N/A'}/${user.createdAt?.month ?? 'N/A'}/${user.createdAt?.year ?? 'N/A'}',
-                                                              style: const TextStyle(
-                                                                color: Color(0xFF636E72),
+                                                              user.isPremium ? 'Premium' : 'Thường',
+                                                              style: TextStyle(
+                                                                color: user.isPremium ? const Color(0xFFFFD700) : const Color(0xFF636E72),
                                                                 fontSize: 12,
                                                                 fontWeight: FontWeight.w500,
                                                               ),

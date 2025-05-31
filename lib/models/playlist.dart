@@ -6,8 +6,8 @@ class Playlist {
   final String title;
   final String? slugify;
   final String? coverImageURL;
-  final dynamic user;
-  final List<dynamic> songs; // Sửa thành List<dynamic> để linh hoạt hơn
+  final dynamic user; // user có thể là null
+  final List<dynamic> songs;
   final bool isPublic;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -63,7 +63,7 @@ class Playlist {
     String? slugify,
     String? coverImageURL,
     dynamic user,
-    List<dynamic>? songs, // Sửa thành List<dynamic>
+    List<dynamic>? songs,
     bool? isPublic,
     DateTime? createdAt,
     DateTime? updatedAt,

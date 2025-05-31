@@ -27,6 +27,7 @@ class _AdminShowAlbumPageState extends State<AdminShowAlbumPage> {
   final SongService _songService = SongService();
   final AdminGenreService _genreService = AdminGenreService();
   final ApiClient _apiClient = ApiClient();
+  String? genreName;
 
   @override
   void initState() {
@@ -38,23 +39,43 @@ class _AdminShowAlbumPageState extends State<AdminShowAlbumPage> {
     try {
       final fetchedAlbumData = await _albumService.getAlbumById(widget.albumId);
       List<Map<String, dynamic>> fetchedSongs = [];
+      
+      // Fetch genre name if genre ID exists
+      if (fetchedAlbumData['album'].genre != null && fetchedAlbumData['album'].genre.isNotEmpty) {
+        try {
+          final genreData = await _genreService.getGenreDetails(fetchedAlbumData['album'].genre);
+          setState(() {
+            genreName = genreData['genre'].title;
+          });
+        } catch (e) {
+          print('Error fetching genre: $e');
+          setState(() {
+            genreName = 'Không xác định';
+          });
+        }
+      }
+
       if (fetchedAlbumData['album'].songs.isNotEmpty) {
         final validSongIds = fetchedAlbumData['album'].songs.where((id) => id.isNotEmpty && id != fetchedAlbumData['album'].id).toList();
         if (validSongIds.isNotEmpty) {
-          final response = await _apiClient.get(
-            'song/',
-            queryParameters: {'_id': validSongIds.join(',')},
-            token: Provider.of<UserProvider>(context, listen: false).user?.token,
-          );
-          if (response['success'] == true) {
-            final songsData = response['data'] as List<dynamic>;
-            fetchedSongs = songsData.map((json) {
-              final song = Song.fromJson(json);
-              return {
-                'song': song,
-                'artistName': json['artist']?['title']?.toString() ?? 'Unknown Artist',
-              };
-            }).toList();
+          // Fetch songs one by one to avoid the ObjectId casting error
+          for (String songId in validSongIds) {
+            try {
+              final response = await _apiClient.get(
+                'song/$songId',
+                token: Provider.of<UserProvider>(context, listen: false).user?.token,
+              );
+              if (response['success'] == true) {
+                final songData = response['data'];
+                final song = Song.fromJson(songData);
+                fetchedSongs.add({
+                  'song': song,
+                  'artistName': songData['artist']?['title']?.toString() ?? 'Unknown Artist',
+                });
+              }
+            } catch (e) {
+              print('Error fetching song $songId: $e');
+            }
           }
         }
       }
@@ -307,22 +328,67 @@ class _AdminShowAlbumPageState extends State<AdminShowAlbumPage> {
                         Center(
                           child: Image.network(
                             albumData!['album'].coverImageURL,
-                            width: 150,
-                            height: 150,
+                            width: 200,
+                            height: 200,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 150),
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 200),
                           ),
                         ),
-                      const SizedBox(height: 16),
-                      Text('Title: ${albumData!['album'].title}', style: const TextStyle(fontSize: 16)),
-                      Text('Artist: ${albumData!['artistName'] ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
-                      Text('Genre: ${albumData!['album'].genre ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
-                      Text('Created At: ${albumData!['album'].createdAt.toLocal()}', style: const TextStyle(fontSize: 16)),
                       const SizedBox(height: 24),
-                      const Text('Songs:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Thông tin cơ bản',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2D3436),
+                                ),
+                              ),
+                              const Divider(),
+                              _buildInfoRow('Tên album', albumData!['album'].title),
+                              _buildInfoRow('Nghệ sĩ', albumData!['artistName'] ?? 'Chưa có'),
+                              _buildInfoRow('Thể loại', genreName ?? 'Chưa có'),
+                              _buildInfoRow('Ngày tạo', albumData!['album'].createdAt.toLocal().toString().split('.')[0]),
+                              _buildInfoRow('Ngày cập nhật', albumData!['album'].updatedAt.toLocal().toString().split('.')[0]),
+                              _buildInfoRow('Số bài hát', '${songs.length} bài'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Danh sách bài hát',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2D3436),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: addSongsToAlbum,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Thêm bài hát'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF0984E3),
+                            ),
+                          ),
+                        ],
+                      ),
                       const Divider(),
                       songs.isEmpty
-                          ? const Center(child: Text('No songs in this album'))
+                          ? const Center(child: Text('Không có bài hát nào trong album này'))
                           : ListView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
@@ -331,52 +397,120 @@ class _AdminShowAlbumPageState extends State<AdminShowAlbumPage> {
                                 final entry = songs[index];
                                 final song = entry['song'] as Song;
                                 final artistName = entry['artistName'] as String;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: SongTile(
-                                        song: song,
-                                        artistName: artistName,
-                                        index: index + 1,
-                                        onTap: () => Navigator.pushNamed(
-                                          context,
-                                          '/admin/song/:sid',
-                                          arguments: song.id,
+                                return Card(
+                                  elevation: 1,
+                                  margin: const EdgeInsets.symmetric(vertical: 4),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ListTile(
+                                    leading: Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0984E3).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${index + 1}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0984E3),
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Confirm Remove'),
-                                            content: Text('Are you sure you want to remove ${song.title} from this album?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  removeSongFromAlbum(song.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Remove'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
+                                    title: Text(
+                                      song.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF2D3436),
+                                      ),
                                     ),
-                                  ],
+                                    subtitle: Text(
+                                      artistName,
+                                      style: const TextStyle(
+                                        color: Color(0xFF636E72),
+                                      ),
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.play_arrow, color: Color(0xFF0984E3)),
+                                          onPressed: () {
+                                            // TODO: Implement play functionality
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete, color: Color(0xFFE74C3C)),
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text('Xác nhận xóa'),
+                                                content: Text('Bạn có chắc chắn muốn xóa bài hát "${song.title}" khỏi album này?'),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context),
+                                                    child: const Text('Hủy'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      removeSongFromAlbum(song.id);
+                                                      Navigator.pop(context);
+                                                    },
+                                                    child: const Text('Xóa', style: TextStyle(color: Color(0xFFE74C3C))),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      '/admin/song/:sid',
+                                      arguments: song.id,
+                                    ),
+                                  ),
                                 );
                               },
                             ),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF636E72),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF2D3436),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
