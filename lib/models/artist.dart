@@ -27,9 +27,9 @@ class Artist {
       title: json['title']?.toString() ?? '',
       avatar: json['avatar']?.toString(),
       slugify: json['slugify']?.toString() ?? '',
-      genres: (json['genres'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      albums: (json['albums'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      songs: (json['songs'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      genres: (json['genres'] as List<dynamic>?)?.map((e) => e is Map ? e['_id']?.toString() ?? e.toString() : e.toString()).toList() ?? [],
+      albums: (json['albums'] as List<dynamic>?)?.map((e) => e is Map ? e['_id']?.toString() ?? '' : e.toString()).where((id) => id.isNotEmpty).toList() ?? [],
+      songs: (json['songs'] as List<dynamic>?)?.map((e) => e is Map ? e['_id']?.toString() ?? '' : e.toString()).where((id) => id.isNotEmpty).toList() ?? [],
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );

@@ -6,7 +6,7 @@ class Album {
   final String? genre;
   final String? coverImageURL;
   final List<String> songs;
-  final bool isPublic; // Thêm trường isPublic
+  final bool isPublic;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -18,12 +18,13 @@ class Album {
     this.genre,
     this.coverImageURL,
     this.songs = const [],
-    this.isPublic = true, // Mặc định true
+    this.isPublic = true,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory Album.fromJson(Map<String, dynamic> json) {
+    print('Album.fromJson input: $json'); // Debug input JSON
     return Album(
       id: json['_id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
@@ -32,7 +33,7 @@ class Album {
       genre: json['genre'] is Map<String, dynamic> ? json['genre']['_id']?.toString() : json['genre']?.toString(),
       coverImageURL: json['coverImageURL']?.toString(),
       songs: (json['songs'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? e['_id']?.toString() ?? '' : e.toString()).where((id) => id.isNotEmpty).toList() ?? [],
-      isPublic: json['isPublic'] ?? true, // Ánh xạ isPublic
+      isPublic: json['isPublic'] is bool ? json['isPublic'] : true,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
