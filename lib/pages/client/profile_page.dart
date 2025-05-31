@@ -250,12 +250,11 @@ class ProfilePage extends StatelessWidget {
                                                                     builder: (context) => CustomAlertDialog(
                                                                       isSuccess: true,
                                                                       title: 'Thanh toán thành công',
-                                                                      message: 'Bạn đã nâng cấp Premium thành công! Vui lòng đăng nhập lại.',
+                                                                      message: 'Bạn đã nâng cấp Premium thành công!',
                                                                       autoDismiss: true,
                                                                       autoDismissDuration: Duration(seconds: 2),
-                                                                      onConfirm: () async {
-                                                                        await userProvider.logout();
-                                                                        Navigator.pushNamedAndRemoveUntil(rootContext, '/login', (route) => false);
+                                                                      onConfirm: () {
+                                                                        Navigator.pop(context);
                                                                       },
                                                                     ),
                                                                   );
@@ -264,10 +263,13 @@ class ProfilePage extends StatelessWidget {
                                                                     context: rootContext,
                                                                     builder: (context) => CustomAlertDialog(
                                                                       isSuccess: false,
-                                                                      title: 'Thanh toán thất bại',
-                                                                      message: 'Thanh toán thất bại hoặc bị hủy. Vui lòng thử lại.',
+                                                                      title: 'Thanh toán chưa được xác nhận',
+                                                                      message: 'Vui lòng thử lại sau hoặc liên hệ hỗ trợ.',
                                                                       autoDismiss: true,
-                                                                      autoDismissDuration: Duration(seconds: 3),
+                                                                      autoDismissDuration: Duration(seconds: 2),
+                                                                      onConfirm: () {
+                                                                        Navigator.pop(context);
+                                                                      },
                                                                     ),
                                                                   );
                                                                 }

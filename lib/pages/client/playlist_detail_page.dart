@@ -496,7 +496,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                                         final song = playlist!.songs[index];
                                         return SongTile(
                                           song: song,
-                                          artistName: song.artist ?? 'Unknown Artist',
+                                          artistName: song.artistName ?? 'Unknown Artist',
                                           index: index + 1,
                                           isRanking: false,
                                           playlist: List<Song>.from(playlist!.songs),

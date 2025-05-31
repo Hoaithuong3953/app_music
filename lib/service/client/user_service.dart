@@ -319,25 +319,29 @@ class UserService {
         await prefs.remove(cacheKey);
         await prefs.remove('${cacheKey}_timestamp');
 
-        dynamic response = await _apiClient.post(
+        print('Calling upgrade-to-premium API with duration: $duration');
+        final response = await _apiClient.post(
           'user/upgrade-to-premium',
           {'duration': duration},
           token: accessToken,
         );
 
-        print('Response type: [33m${response.runtimeType}[0m');
-        print('Response content: $response');
-        if (response is String) {
-          response = jsonDecode(response);
-        }
-
-        if (response is Map && response['paymentUrl'] != null && response['paymentUrl'] is String && response['paymentUrl'].toString().isNotEmpty) {
+        print('Response from upgrade-to-premium: $response');
+        
+        if (response is Map<String, dynamic> && 
+            response['success'] == true && 
+            response['paymentUrl'] != null && 
+            response['paymentUrl'].toString().isNotEmpty) {
           return response['paymentUrl'] as String;
         } else {
-          throw Exception(response is Map ? (response['message'] ?? 'Không nhận được link thanh toán premium') : 'Không nhận được link thanh toán premium');
+          throw Exception(response is Map ? 
+            (response['message'] ?? 'Không nhận được link thanh toán premium') : 
+            'Không nhận được link thanh toán premium');
         }
       } catch (e) {
+        print('Error in upgradeToPremium attempt $attempt: $e');
         if (attempt == maxRetries) rethrow;
+        await Future.delayed(retryDelay);
       }
     }
     throw Exception('Failed to upgrade to premium after $maxRetries attempts');

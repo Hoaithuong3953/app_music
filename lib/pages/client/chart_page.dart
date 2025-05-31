@@ -487,7 +487,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
                 }
                 return SongTile(
                   song: song,
-                  artistName: getArtistName(song.artist),
+                  artistName: song.artistName ?? 'Unknown Artist',
                   index: index + 4,
                   isRanking: true,
                   playlist: songList,

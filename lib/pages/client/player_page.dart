@@ -299,7 +299,7 @@ class _PlayerPageState extends State<PlayerPage> {
                                                 physics: const ClampingScrollPhysics(),
                                                 child: Text(
                                                   currentSong != null
-                                                      ? (currentSong.artist ?? 'Unknown Artist')
+                                                      ? (currentSong.artistName ?? 'Unknown Artist')
                                                       : 'Select a song below',
                                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                                     fontSize: screenHeight * 0.02,

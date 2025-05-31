@@ -81,17 +81,31 @@ class Song {
       }
     }
 
+    // Xử lý tên nghệ sĩ hợp lý nhất
+    String? artistId;
+    String? artistName;
+    if (json['artist'] is Map<String, dynamic>) {
+      artistId = json['artist']['_id']?.toString();
+      artistName = json['artist']['title']?.toString();
+    } else if (json['artist'] is String) {
+      artistId = json['artist'];
+      // Nếu là chuỗi 24 ký tự (ObjectId) thì không phải tên
+      if (artistId != null && RegExp(r'^[a-fA-F0-9]{24}\$').hasMatch(artistId)) {
+        artistName = 'Unknown Artist';
+      } else {
+        artistName = artistId;
+      }
+    } else {
+      artistName = 'Unknown Artist';
+    }
+
     return Song(
       id: json['_id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString(),
       lyrics: json['lyrics']?.toString(),
-      artist: json['artist'] is Map<String, dynamic>
-          ? json['artist']['_id']?.toString()
-          : json['artist']?.toString(),
-      artistName: json['artist'] is Map<String, dynamic>
-          ? json['artist']['title']?.toString() ?? 'Không rõ nghệ sĩ'
-          : json['artist']?.toString() ?? 'Không rõ nghệ sĩ',
+      artist: artistId,
+      artistName: artistName,
       album: json['album'] is Map<String, dynamic>
           ? json['album']['_id']?.toString()
           : json['album']?.toString(),
