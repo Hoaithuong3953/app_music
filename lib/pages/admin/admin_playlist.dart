@@ -62,14 +62,16 @@ class _AdminPlaylistPageState extends State<AdminPlaylistPage> {
     });
 
     try {
-      final fetchedPlaylists = await _adminPlaylistService.getAllPlaylistsForAdmin(
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final result = await _adminPlaylistService.getAllPlaylistsForAdmin(
         page: currentPage,
         limit: limit,
+        token: userProvider.user?.token,
       );
       setState(() {
-        playlists = fetchedPlaylists;
-        filteredPlaylists = fetchedPlaylists;
-        totalCount = fetchedPlaylists.length; // Cần cập nhật nếu API trả về counts
+        playlists = result;
+        filteredPlaylists = result;
+        totalCount = result.length;
         isLoading = false;
       });
     } catch (e) {
@@ -336,7 +338,7 @@ class _AdminPlaylistPageState extends State<AdminPlaylistPage> {
                                       context,
                                       '/admin/playlist/:pid',
                                       arguments: playlist.id,
-                                    ),
+                                    ).then((_) => fetchPlaylists()),
                                     borderRadius: BorderRadius.circular(16),
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
