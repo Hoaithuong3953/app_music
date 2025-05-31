@@ -6,6 +6,7 @@ import 'change_password_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../widgets/custom_alert_dialog.dart';
 
 class ProfilePage extends StatelessWidget {
   @override
@@ -59,6 +60,39 @@ class ProfilePage extends StatelessWidget {
                       fontSize: screenHeight * 0.03,
                     ),
                   ),
+                  SizedBox(height: screenHeight * 0.005),
+                  if (userProvider.user?.isPremium == true && 
+                      (userProvider.user?.premiumExpired == null || 
+                       userProvider.user!.premiumExpired!.isAfter(DateTime.now())))
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.03,
+                        vertical: screenHeight * 0.005,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.workspace_premium,
+                            color: Colors.white,
+                            size: screenHeight * 0.02,
+                          ),
+                          SizedBox(width: screenWidth * 0.01),
+                          Text(
+                            'Premium',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: screenHeight * 0.018,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   SizedBox(height: screenHeight * 0.01),
                   Text(
                     userEmail,
@@ -169,33 +203,97 @@ class ProfilePage extends StatelessWidget {
                                           context: context,
                                           builder: (context) => AlertDialog(
                                             title: Text('Thanh toán Premium'),
-                                            content: Text('Nhấn OK để mở trang thanh toán.'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () async {
-                                                  Navigator.pop(context);
-                                                  final uri = Uri.parse(url);
-                                                  if (kIsWeb) {
-                                                    if (await canLaunchUrl(uri)) {
-                                                      await launchUrl(uri, webOnlyWindowName: '_blank');
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text('Nhấn OK để mở trang thanh toán.'),
+                                                SizedBox(height: 16),
+                                                ElevatedButton(
+                                                  onPressed: () async {
+                                                    Navigator.pop(context);
+                                                    final uri = Uri.parse(url);
+                                                    if (kIsWeb) {
+                                                      if (await canLaunchUrl(uri)) {
+                                                        await launchUrl(uri, webOnlyWindowName: '_blank');
+                                                      } else {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text('Không mở được link thanh toán!')),
+                                                        );
+                                                      }
                                                     } else {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(content: Text('Không mở được link thanh toán!')),
-                                                      );
+                                                      if (await canLaunchUrl(uri)) {
+                                                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                                      } else {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text('Không mở được link thanh toán!')),
+                                                        );
+                                                      }
                                                     }
-                                                  } else {
-                                                    if (await canLaunchUrl(uri)) {
-                                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                                    } else {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(content: Text('Không mở được link thanh toán!')),
-                                                      );
-                                                    }
-                                                  }
-                                                },
-                                                child: Text('OK'),
-                                              ),
-                                            ],
+                                                    // Sau khi mở trang thanh toán, show nút kiểm tra trạng thái
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) => AlertDialog(
+                                                        title: Text('Xác nhận thanh toán'),
+                                                        content: Text('Sau khi thanh toán xong, nhấn nút bên dưới để kiểm tra trạng thái Premium.'),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () async {
+                                                              Navigator.pop(context);
+                                                              final rootContext = Navigator.of(context, rootNavigator: true).context;
+                                                              try {
+                                                                final userProvider = Provider.of<UserProvider>(rootContext, listen: false);
+                                                                await userProvider.loadUser();
+                                                                final isPremium = userProvider.user?.isPremium == true;
+                                                                if (isPremium) {
+                                                                  showDialog(
+                                                                    context: rootContext,
+                                                                    builder: (context) => CustomAlertDialog(
+                                                                      isSuccess: true,
+                                                                      title: 'Thanh toán thành công',
+                                                                      message: 'Bạn đã nâng cấp Premium thành công! Vui lòng đăng nhập lại.',
+                                                                      autoDismiss: true,
+                                                                      autoDismissDuration: Duration(seconds: 2),
+                                                                      onConfirm: () async {
+                                                                        await userProvider.logout();
+                                                                        Navigator.pushNamedAndRemoveUntil(rootContext, '/login', (route) => false);
+                                                                      },
+                                                                    ),
+                                                                  );
+                                                                } else {
+                                                                  showDialog(
+                                                                    context: rootContext,
+                                                                    builder: (context) => CustomAlertDialog(
+                                                                      isSuccess: false,
+                                                                      title: 'Thanh toán thất bại',
+                                                                      message: 'Thanh toán thất bại hoặc bị hủy. Vui lòng thử lại.',
+                                                                      autoDismiss: true,
+                                                                      autoDismissDuration: Duration(seconds: 3),
+                                                                    ),
+                                                                  );
+                                                                }
+                                                              } catch (e) {
+                                                                showDialog(
+                                                                  context: rootContext,
+                                                                  builder: (context) => CustomAlertDialog(
+                                                                    isSuccess: false,
+                                                                    title: 'Lỗi',
+                                                                    message: 'Không kiểm tra được trạng thái thanh toán. Vui lòng thử lại.',
+                                                                    autoDismiss: true,
+                                                                    autoDismissDuration: Duration(seconds: 4),
+                                                                  ),
+                                                                );
+                                                              }
+                                                            },
+                                                            child: Text('Tôi đã thanh toán'),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: Text('OK'),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         );
                                       } else {

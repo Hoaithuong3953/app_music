@@ -35,7 +35,7 @@ class PlaylistService {
         if (sort != null) queryParams['sort'] = sort;
         if (fields != null) queryParams['fields'] = fields;
 
-        final response = await _apiClient.get('playlist/', queryParameters: queryParams, token: token);
+        final response = await _apiClient.get('playlist/', queryParameters: queryParams, token: token, forceRefresh: true);
         print('API Response for getAllPlaylists: ${response['data']}');
 
         if (response['success'] == true) {
@@ -118,6 +118,9 @@ class PlaylistService {
         );
 
         if (response['success'] == true) {
+          // Xóa cache GET playlist sau khi tạo mới
+          final cacheKey = 'GET:${_apiClient.baseUrl}/playlist/:{user: $userId, page: 1, limit: 10}';
+          await _apiClient.clearCacheForKey(cacheKey);
           return Playlist.fromJson(response['data']);
         } else {
           throw Exception(response['message'] ?? 'Failed to create playlist');
@@ -209,11 +212,19 @@ class PlaylistService {
   }) async {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        if (token == null) {
+          throw Exception('No access token found');
+        }
+
         final body = {
           'songs': songIds.join(','),
         };
 
-        final response = await _apiClient.put('playlist/$playlistId/songs', body, token: token);
+        final response = await _apiClient.put(
+          'playlist/$playlistId/songs',
+          body,
+          token: token,
+        );
 
         if (response['success'] == true) {
           return Playlist.fromJson(response['data']);

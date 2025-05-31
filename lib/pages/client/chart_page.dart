@@ -605,7 +605,7 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
         ),
         SizedBox(height: imageSize * 0.05),
         Text(
-          '${(plays / 1000).toStringAsFixed(1)}K plays',
+          _formatPlays(plays),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             fontSize: fontSizePlays,
             color: Theme.of(context).highlightColor,
@@ -623,6 +623,16 @@ class _ChartPageState extends State<ChartPage> with SingleTickerProviderStateMix
       return artist.title ?? 'Unknown Artist';
     } catch (_) {
       return 'Unknown Artist';
+    }
+  }
+
+  String _formatPlays(num plays) {
+    if (plays >= 1000000) {
+      return '${(plays / 1000000).toStringAsFixed(1)}M plays';
+    } else if (plays >= 1000) {
+      return '${(plays / 1000).toStringAsFixed(1)}K plays';
+    } else {
+      return '${plays.toStringAsFixed(0)} plays';
     }
   }
 }

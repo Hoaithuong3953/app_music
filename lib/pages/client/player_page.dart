@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/song.dart';
+import '../../models/playlist.dart';
 import '../../providers/song_provider.dart';
 import '../../providers/playback_provider.dart';
 import '../../providers/audio_handler_provider.dart';
 import '../../service/client/song_service.dart';
+import '../../service/client/playlist_service.dart';
+import '../../providers/user_provider.dart';
 
 class PlayerPage extends StatefulWidget {
   final Song? song;
@@ -20,6 +23,8 @@ class _PlayerPageState extends State<PlayerPage> {
   String? errorMessage;
   List<Map<String, dynamic>> songList = [];
   bool isLoadingSongs = false;
+  PlaylistService _playlistService = PlaylistService();
+  String? _favoritePlaylistId;
 
   @override
   void initState() {
@@ -27,6 +32,7 @@ class _PlayerPageState extends State<PlayerPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initSong();
       _fetchSongs();
+      _checkFavoriteStatus();
     });
   }
 
@@ -69,10 +75,106 @@ class _PlayerPageState extends State<PlayerPage> {
     }
   }
 
-  void toggleWishlist() {
-    setState(() {
-      isWishlisted = !isWishlisted;
-    });
+  Future<void> _checkFavoriteStatus() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+    final token = await userProvider.token;
+    final currentSong = widget.song;
+    if (userId == null || token == null || currentSong == null) return;
+    try {
+      final playlists = await _playlistService.getAllPlaylists(userId: userId, token: token, limit: 20);
+      Playlist? favorite;
+      try {
+        favorite = playlists.firstWhere((p) => p.title.trim().toLowerCase() == 'favorite');
+      } catch (_) {
+        favorite = null;
+      }
+      if (favorite != null) {
+        _favoritePlaylistId = favorite.id;
+        final exists = favorite.songs.any((s) => s.id == currentSong.id);
+        setState(() {
+          isWishlisted = exists;
+        });
+      } else {
+        setState(() {
+          isWishlisted = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isWishlisted = false;
+      });
+    }
+  }
+
+  void toggleWishlist() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+    final token = await userProvider.token;
+    final currentSong = widget.song;
+
+    if (userId == null || token == null || currentSong == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to add songs to favorites'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    try {
+      if (!isWishlisted) {
+        // If favorite playlist doesn't exist, create it
+        if (_favoritePlaylistId == null) {
+          final newPlaylist = await _playlistService.createPlaylist(
+            title: 'Favorite',
+            userId: userId,
+            token: token,
+          );
+          _favoritePlaylistId = newPlaylist.id;
+        }
+
+        // Add song to favorite playlist
+        await _playlistService.addSongsToPlaylist(
+          playlistId: _favoritePlaylistId!,
+          songIds: [currentSong.id],
+          token: token,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Added to favorites'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        // Remove song from favorite playlist
+        await _playlistService.removeSongsFromPlaylist(
+          playlistId: _favoritePlaylistId!,
+          songIds: [currentSong.id],
+          token: token,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Removed from favorites'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      setState(() {
+        isWishlisted = !isWishlisted;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   String _formatDuration(Duration duration) {

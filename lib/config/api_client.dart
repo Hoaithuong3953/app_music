@@ -198,15 +198,18 @@ class ApiClient {
     String endpoint, {
     String? token,
     Map<String, String>? queryParameters,
+    bool forceRefresh = false,
   }) async {
     final url = '$baseUrl/$endpoint';
     final cacheKey = 'GET:$url:${queryParameters.toString()}';
     print('Calling GET $url');
 
-    final cachedResponse = await _getCachedResponse(cacheKey);
-    if (cachedResponse != null) {
-      print('Returning cached response for GET $endpoint');
-      return cachedResponse;
+    if (!forceRefresh) {
+      final cachedResponse = await _getCachedResponse(cacheKey);
+      if (cachedResponse != null) {
+        print('Returning cached response for GET $endpoint');
+        return cachedResponse;
+      }
     }
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -346,5 +349,11 @@ class ApiClient {
       print('Error refreshing token: $e');
       return null;
     }
+  }
+
+  Future<void> clearCacheForKey(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+    await prefs.remove('${key}_timestamp');
   }
 }

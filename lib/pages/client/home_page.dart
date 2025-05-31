@@ -10,6 +10,7 @@ import '../../providers/user_provider.dart';
 import '../../service/client/song_service.dart';
 import '../../service/client/album_service.dart';
 import '../../service/client/artist_service.dart';
+import '../../pages/client/album_detail_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -279,9 +280,20 @@ class _HomePageState extends State<HomePage> {
                                     scrollDirection: Axis.horizontal,
                                     clipBehavior: Clip.hardEdge,
                                     children: albums.map(
-                                      (albumData) => AlbumCard(
-                                        album: albumData['album'],
-                                        artistName: albumData['artistName'],
+                                      (albumData) => GestureDetector(
+                                        onTap: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (context) => AlbumDetailPage(
+                                                albumId: albumData['album'].id,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: AlbumCard(
+                                          album: albumData['album'],
+                                          artistName: albumData['artistName'],
+                                        ),
                                       ),
                                     ).toList(),
                                   ),

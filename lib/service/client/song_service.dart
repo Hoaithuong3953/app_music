@@ -1,8 +1,7 @@
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async';
-import 'package:http_parser/http_parser.dart';
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'dart:convert';
 import '../../config/api_client.dart';
 import '../../models/song.dart';
 
@@ -11,7 +10,35 @@ class SongService {
   static const int maxRetries = 3;
   static const Duration retryDelay = Duration(seconds: 1);
 
-  // Lấy danh sách tất cả bài hát với tìm kiếm theo title hoặc likes
+  Future<List<Song>> getSongsByIds(List<String> ids) async {
+    try {
+      final response = await _apiClient.get('/songs/ids', queryParameters: {'ids': ids.join(',')});
+      if (response['success'] == true) {
+        final data = response['data'];
+        if (data is List) {
+          return data.map((json) => Song.fromJson(json)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching songs by ids: $e');
+      return [];
+    }
+  }
+
+  Future<Song> getSongById(String id) async {
+    try {
+      final response = await _apiClient.get('/songs/$id');
+      if (response['success'] == true) {
+        return Song.fromJson(response['data']);
+      }
+      throw Exception('Failed to load song');
+    } catch (e) {
+      print('Error fetching song: $e');
+      rethrow;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getAllSongs({
     int page = 1,
     int? limit,
@@ -59,11 +86,6 @@ class SongService {
           await Future.delayed(retryDelay);
           continue;
         }
-        if (e is TimeoutException && attempt < maxRetries) {
-          print('Timeout for getAllSongs, retrying ($attempt/$maxRetries)...');
-          await Future.delayed(retryDelay);
-          continue;
-        }
         if (attempt == maxRetries) {
           throw Exception('Failed to fetch songs after $maxRetries attempts: $e');
         }
@@ -74,8 +96,8 @@ class SongService {
   }
 
   Future<Song> getSong(String songId) async {
-    const maxRetries = 3;
-    const retryDelay = Duration(seconds: 1);
+    const maxRetries = 5;
+    const baseDelay = Duration(seconds: 1);
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -86,9 +108,7 @@ class SongService {
           if (data is Map<String, dynamic>) {
             return Song.fromJson(data);
           } else {
-            // Log dữ liệu thực tế để debug
             print('Invalid data format for song/$songId: ${data.runtimeType} - $data');
-            // Nếu data là List và có phần tử đầu là Map, lấy phần tử đầu tiên
             if (data is List && data.isNotEmpty && data.first is Map<String, dynamic>) {
               print('Fallback: using first element of list as song data');
               return Song.fromJson(data.first as Map<String, dynamic>);
@@ -100,15 +120,18 @@ class SongService {
         }
       } catch (e) {
         if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
-          print('Rate limit hit for song $songId, retrying ($attempt/$maxRetries)...');
-          await Future.delayed(retryDelay);
+          final delay = baseDelay * attempt;
+          print('Rate limit hit for song $songId, retrying ($attempt/$maxRetries) after $delay...');
+          await Future.delayed(delay);
           continue;
         }
         print('Error in getSong($songId): $e');
-        throw Exception('Failed to get song: $e');
+        if (attempt == maxRetries) {
+          throw Exception('Mạng yếu hoặc server quá tải, vui lòng thử lại sau.');
+        }
+        await Future.delayed(baseDelay * attempt);
       }
     }
-
     throw Exception('Failed to get song after $maxRetries attempts');
   }
 
@@ -152,7 +175,6 @@ class SongService {
     return songs;
   }
 
-  // Like một bài hát
   Future<Song> likeSong(String songId, String token) async {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -177,7 +199,6 @@ class SongService {
     throw Exception('Failed to like song after $maxRetries attempts');
   }
 
-  // Dislike một bài hát
   Future<Song> dislikeSong(String songId, String token) async {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -202,7 +223,6 @@ class SongService {
     throw Exception('Failed to dislike song after $maxRetries attempts');
   }
 
-  // Upload file nhạc mới
   Future<Song> uploadMusic(String songId, File musicFile, String token) async {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -246,7 +266,6 @@ class SongService {
     throw Exception('Failed to upload music after $maxRetries attempts');
   }
 
-  // Tạo bài hát mới và upload
   Future<Song> createAndUploadSong({
     required String title,
     required File songFile,
@@ -319,7 +338,6 @@ class SongService {
     throw Exception('Failed to create song after $maxRetries attempts');
   }
 
-  // Cập nhật thông tin bài hát
   Future<Song> updateSong({
     required String songId,
     String? title,
@@ -395,7 +413,6 @@ class SongService {
     throw Exception('Failed to update song after $maxRetries attempts');
   }
 
-  // Xóa bài hát
   Future<void> deleteSong(String songId, String token) async {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
