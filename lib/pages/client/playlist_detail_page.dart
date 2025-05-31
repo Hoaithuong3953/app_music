@@ -235,18 +235,40 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     });
 
     try {
-      final songs = await _songService.getAllSongs(limit: 10);
+      // Lấy tất cả bài hát có sẵn
+      final allSongs = await _songService.getAllSongs();
       final playlistSongIds = playlist!.songs.map((song) => song.id).toSet();
-      final filteredSongs = songs.where((songData) {
+      
+      // Lọc ra các bài hát không có trong playlist
+      final filteredSongs = allSongs.where((songData) {
         final song = songData['song'] as Song;
         return !playlistSongIds.contains(song.id);
       }).toList();
 
+      // Lấy 10 bài hát đầu tiên hoặc tất cả nếu không đủ 10 bài
+      final songsToFetch = filteredSongs.take(10).toList();
+
+      // Fetch detailed information for each recommended song
+      List<Map<String, dynamic>> detailedSongs = [];
+      for (var songData in songsToFetch) {
+        try {
+          final song = songData['song'] as Song;
+          final detailedSong = await _songService.getSong(song.id);
+          detailedSongs.add({
+            'song': detailedSong,
+            'artistName': detailedSong.artist ?? 'Unknown Artist',
+          });
+        } catch (e) {
+          print('Error fetching detailed song info: $e');
+          detailedSongs.add(songData);
+        }
+      }
+
       if (!mounted) return;
       setState(() {
-        recommendedSongs = filteredSongs;
+        recommendedSongs = detailedSongs;
         isLoadingRecommendations = false;
-        print('Loaded ${filteredSongs.length} recommended songs');
+        print('Loaded ${detailedSongs.length} recommended songs');
       });
     } catch (e) {
       if (!mounted) return;
@@ -396,10 +418,22 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(12),
-                                      child: Image.asset(
-                                        'images/default_cover.jpg',
-                                        fit: BoxFit.cover,
-                                      ),
+                                      child: playlist!.coverImageURL != null
+                                          ? Image.network(
+                                              playlist!.coverImageURL!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                print('Error loading playlist cover: $error');
+                                                return Image.asset(
+                                                  'images/default_cover.jpg',
+                                                  fit: BoxFit.cover,
+                                                );
+                                              },
+                                            )
+                                          : Image.asset(
+                                              'images/default_cover.jpg',
+                                              fit: BoxFit.cover,
+                                            ),
                                     ),
                                   ),
                                   Positioned(
@@ -513,12 +547,27 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                                           height: 48,
                                           decoration: BoxDecoration(
                                             color: Colors.grey[300],
-                                            shape: BoxShape.circle,
+                                            borderRadius: BorderRadius.circular(8),
                                           ),
-                                          child: Image.asset(
-                                            'images/default_cover.jpg',
-                                            fit: BoxFit.cover,
-                                          ),
+                                          child: song.coverImage != null
+                                              ? ClipRRect(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  child: Image.network(
+                                                    song.coverImage!,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) {
+                                                      print('Error loading song cover: $error');
+                                                      return Image.asset(
+                                                        'images/default_cover.jpg',
+                                                        fit: BoxFit.cover,
+                                                      );
+                                                    },
+                                                  ),
+                                                )
+                                              : Image.asset(
+                                                  'images/default_cover.jpg',
+                                                  fit: BoxFit.cover,
+                                                ),
                                         ),
                                         title: Text(
                                           song.title,

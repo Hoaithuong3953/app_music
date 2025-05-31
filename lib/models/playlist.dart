@@ -25,14 +25,17 @@ class Playlist {
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
+    print('Parsing Playlist.fromJson: $json'); // Add debug log
     return Playlist(
       id: json['_id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       slugify: json['slugify']?.toString(),
       coverImageURL: json['coverImageURL']?.toString(),
-      user: json['user'] == null
-          ? throw Exception('User is required')
-          : (json['user'] is Map<String, dynamic> ? User.fromJson(json['user']) : json['user']?.toString()),
+      user: json['user'] == null 
+          ? null 
+          : (json['user'] is Map<String, dynamic> 
+              ? User.fromJson(json['user']) 
+              : json['user']?.toString()),
       songs: (json['songs'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? Song.fromJson(e) : e.toString()).toList() ?? [],
       isPublic: json['isPublic'] ?? true,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),

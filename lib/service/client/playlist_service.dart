@@ -14,16 +14,29 @@ class PlaylistService {
     int limit = 10,
     String? sort,
     String? fields,
+    String? token,
+    String? userId,
   }) async {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        final queryParams = <String, String>{};
-        queryParams['page'] = page.toString();
-        queryParams['limit'] = limit.toString();
+        if (token == null) {
+          throw Exception('No access token found');
+        }
+
+        if (userId == null) {
+          throw Exception('User ID is required');
+        }
+
+        final queryParams = <String, String>{
+          'page': page.toString(),
+          'limit': limit.toString(),
+          'user': userId,
+        };
         if (sort != null) queryParams['sort'] = sort;
         if (fields != null) queryParams['fields'] = fields;
 
-        final response = await _apiClient.get('playlist/', queryParameters: queryParams);
+        final response = await _apiClient.get('playlist/', queryParameters: queryParams, token: token);
+        print('API Response for getAllPlaylists: ${response['data']}');
 
         if (response['success'] == true) {
           final playlistsData = response['data'] as List<dynamic>;

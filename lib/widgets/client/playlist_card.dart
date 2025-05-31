@@ -297,18 +297,32 @@ class _PlaylistCardState extends State<PlaylistCard> {
                     _showEditPlaylistDialog(context);
                   } else if (value == 'delete') {
                     _showDeleteConfirmationDialog(context);
+                  } else if (value == 'update_img') {
+                    _pickImage();
                   }
                 },
-                itemBuilder: (BuildContext context) => [
-                  const PopupMenuItem<String>(
-                    value: 'edit',
-                    child: Text('Edit'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'delete',
-                    child: Text('Delete'),
-                  ),
-                ],
+                itemBuilder: (BuildContext context) {
+                  final isFavorite = widget.playlist.title == 'Favorite';
+                  if (isFavorite) {
+                    return [
+                      const PopupMenuItem<String>(
+                        value: 'update_img',
+                        child: Text('Update Image'),
+                      ),
+                    ];
+                  } else {
+                    return [
+                      const PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Text('Edit'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ];
+                  }
+                },
               ),
             ],
           ),

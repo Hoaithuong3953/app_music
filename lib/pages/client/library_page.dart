@@ -38,7 +38,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Future<void> _fetchPlaylists() async {
-    if (!mounted) return; // Kiểm tra mounted
+    if (!mounted) return;
 
     setState(() {
       isLoading = true;
@@ -46,26 +46,51 @@ class _LibraryPageState extends State<LibraryPage> {
     });
 
     try {
-      final fetchedPlaylists = await _playlistService.getAllPlaylists();
-      if (!mounted) return; // Kiểm tra mounted
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final token = await userProvider.token;
+      final userId = userProvider.user?.id;
+      
+      if (token == null) {
+        throw Exception('Please log in to view your playlists');
+      }
+
+      if (userId == null) {
+        throw Exception('User information not found');
+      }
+
+      final fetchedPlaylists = await _playlistService.getAllPlaylists(
+        token: token,
+        userId: userId,
+      );
+      
+      if (!mounted) return;
       setState(() {
         playlists = fetchedPlaylists.map((playlist) {
+          String ownerName = 'Unknown User';
+          if (playlist.user != null) {
+            if (playlist.user is User) {
+              ownerName = (playlist.user as User).email ?? 'Unknown User';
+            } else if (playlist.user is String) {
+              ownerName = playlist.user.toString();
+            }
+          }
           return {
             'playlist': playlist,
-            'ownerName': playlist.user is User
-                ? (playlist.user as User).email ?? 'Unknown User'
-                : 'Unknown User',
+            'ownerName': ownerName,
             'songCount': playlist.songs.length,
           };
         }).toList();
         isLoading = false;
       });
     } catch (e) {
-      if (!mounted) return; // Kiểm tra mounted
+      if (!mounted) return;
       setState(() {
         errorMessage = e.toString();
         isLoading = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 

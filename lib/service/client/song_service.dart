@@ -13,65 +13,66 @@ class SongService {
 
   // Lấy danh sách tất cả bài hát với tìm kiếm theo title hoặc likes
   Future<List<Map<String, dynamic>>> getAllSongs({
-  int page = 1,
-  int limit = 10,
-  String? title,
-  String? likes,
-  String? sort,
-  String? fields,
-}) async {
-  const maxRetries = 5; // Tăng số lần thử
-  const retryDelay = Duration(seconds: 2);
+    int page = 1,
+    int? limit,
+    String? title,
+    String? likes,
+    String? sort,
+    String? fields,
+  }) async {
+    const maxRetries = 5;
+    const retryDelay = Duration(seconds: 2);
 
-  for (int attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      final queryParams = <String, String>{};
-      queryParams['page'] = page.toString();
-      queryParams['limit'] = limit.toString();
-      if (sort != null) queryParams['sort'] = sort;
-      if (fields != null) queryParams['fields'] = fields;
-      if (title != null) queryParams['title'] = title;
-      if (likes != null) queryParams['likes'] = likes;
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final queryParams = <String, String>{};
+        queryParams['page'] = page.toString();
+        if (limit != null) queryParams['limit'] = limit.toString();
+        if (sort != null) queryParams['sort'] = sort;
+        if (fields != null) queryParams['fields'] = fields;
+        if (title != null) queryParams['title'] = title;
+        if (likes != null) queryParams['likes'] = likes;
 
-      final response = await _apiClient.get('song/', queryParameters: queryParams);
+        final response = await _apiClient.get('song/', queryParameters: queryParams);
 
-      if (response['success'] == true) {
-        if (response['data'] is List<dynamic>) {
-          final songsData = response['data'] as List<dynamic>;
-          return songsData.map((json) {
-            return {
-              'song': Song.fromJson(json),
-              'artistName': json['artist'] != null
-                  ? (json['artist']['title']?.toString() ?? 'Unknown Artist')
-                  : 'Unknown Artist',
-            };
-          }).toList();
+        if (response['success'] == true) {
+          if (response['data'] is List<dynamic>) {
+            final songsData = response['data'] as List<dynamic>;
+            return songsData.map((json) {
+              return {
+                'song': Song.fromJson(json),
+                'artistName': json['artist'] != null
+                    ? (json['artist']['title']?.toString() ?? 'Unknown Artist')
+                    : 'Unknown Artist',
+              };
+            }).toList();
+          } else {
+            throw Exception('Invalid data format: data is not a list');
+          }
         } else {
-          throw Exception('Invalid data format: data is not a list');
+          throw Exception(response['message'] ?? 'Failed to fetch songs');
         }
-      } else {
-        throw Exception(response['message'] ?? 'Failed to fetch songs');
-      }
-    } catch (e) {
-      print('Error in getAllSongs (attempt $attempt/$maxRetries): $e');
-      if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
-        print('Rate limit hit for getAllSongs, retrying ($attempt/$maxRetries)...');
-        await Future.delayed(retryDelay);
-        continue;
-      }
-      if (e is TimeoutException && attempt < maxRetries) {
-        print('Timeout for getAllSongs, retrying ($attempt/$maxRetries)...');
-        await Future.delayed(retryDelay);
-        continue;
-      }
-      if (attempt == maxRetries) {
-        throw Exception('Failed to fetch songs after $maxRetries attempts: $e');
+      } catch (e) {
+        print('Error in getAllSongs (attempt $attempt/$maxRetries): $e');
+        if (e is http.ClientException && e.message.contains('429') && attempt < maxRetries) {
+          print('Rate limit hit for getAllSongs, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (e is TimeoutException && attempt < maxRetries) {
+          print('Timeout for getAllSongs, retrying ($attempt/$maxRetries)...');
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        if (attempt == maxRetries) {
+          throw Exception('Failed to fetch songs after $maxRetries attempts: $e');
+        }
       }
     }
+
+    throw Exception('Failed to fetch songs after $maxRetries attempts');
   }
 
-  throw Exception('Failed to fetch songs after $maxRetries attempts');
-}
   Future<Song> getSong(String songId) async {
     const maxRetries = 3;
     const retryDelay = Duration(seconds: 1);

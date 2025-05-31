@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/custom_alert_dialog.dart';
 import '../../config/validator.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class EditProfilePage extends StatefulWidget {
   @override
@@ -12,10 +13,10 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  late TextEditingController _firstNameController;
-  late TextEditingController _lastNameController;
-  late TextEditingController _emailController;
-  late TextEditingController _mobileController;
+  TextEditingController? _firstNameController;
+  TextEditingController? _lastNameController;
+  TextEditingController? _emailController;
+  TextEditingController? _mobileController;
   String? _firstNameError;
   String? _lastNameError;
   String? _emailError;
@@ -23,34 +24,38 @@ class _EditProfilePageState extends State<EditProfilePage> {
   File? _selectedImage;
   bool _removeAvatar = false;
   bool _isLoading = false;
+  bool _controllersInitialized = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.user;
-    _firstNameController = TextEditingController(text: user?.firstName ?? '');
-    _lastNameController = TextEditingController(text: user?.lastName ?? '');
-    _emailController = TextEditingController(text: user?.email ?? '');
-    _mobileController = TextEditingController(text: user?.mobile ?? '');
+    if (!_controllersInitialized && user != null) {
+      _firstNameController = TextEditingController(text: user.firstName ?? '');
+      _lastNameController = TextEditingController(text: user.lastName ?? '');
+      _emailController = TextEditingController(text: user.email ?? '');
+      _mobileController = TextEditingController(text: user.mobile ?? '');
+      _controllersInitialized = true;
+    }
   }
 
   @override
   void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _mobileController.dispose();
+    _firstNameController?.dispose();
+    _lastNameController?.dispose();
+    _emailController?.dispose();
+    _mobileController?.dispose();
     super.dispose();
   }
 
   bool _validateInputs() {
     bool isValid = true;
     setState(() {
-      _firstNameError = Validator.validateRequiredField(_firstNameController.text, 'First Name');
-      _lastNameError = Validator.validateRequiredField(_lastNameController.text, 'Last Name');
-      _emailError = Validator.validateEmail(_emailController.text);
-      _mobileError = Validator.validateMobile(_mobileController.text);
+      _firstNameError = Validator.validateRequiredField(_firstNameController?.text, 'First Name');
+      _lastNameError = Validator.validateRequiredField(_lastNameController?.text, 'Last Name');
+      _emailError = Validator.validateEmail(_emailController?.text);
+      _mobileError = Validator.validateMobile(_mobileController?.text);
 
       if (_firstNameError != null ||
           _lastNameError != null ||
@@ -63,6 +68,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _pickImage() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chức năng chọn ảnh chỉ hỗ trợ trên mobile/desktop.')),
+      );
+      return;
+    }
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
@@ -228,10 +239,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
 
       await userProvider.updateUser(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        email: _emailController.text.trim(),
-        mobile: _mobileController.text.trim(),
+        firstName: _firstNameController?.text.trim() ?? '',
+        lastName: _lastNameController?.text.trim() ?? '',
+        email: _emailController?.text.trim() ?? '',
+        mobile: _mobileController?.text.trim() ?? '',
       );
 
       showDialog(
@@ -325,10 +336,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    print('EditProfilePage build called');
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user;
+
+    if (user == null || !_controllersInitialized) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Edit Profile'),
+        ),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -365,7 +388,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       radius: screenHeight * 0.08,
                       backgroundColor: Theme.of(context).primaryColor,
                       child: ClipOval(
-                        child: _selectedImage != null
+                        child: _selectedImage != null && !kIsWeb
                             ? Image.file(
                           _selectedImage!,
                           fit: BoxFit.cover,
@@ -379,9 +402,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           width: screenHeight * 0.16,
                           height: screenHeight * 0.16,
                           errorBuilder: (context, error, stackTrace) => Text(
-                            (_firstNameController.text.isNotEmpty
-                                ? _firstNameController.text[0].toUpperCase()
-                                : 'U'),
+                            (_firstNameController?.text.isNotEmpty ?? false)
+                                ? _firstNameController!.text[0].toUpperCase()
+                                : 'U',
                             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                               fontSize: screenHeight * 0.06,
                               color: Colors.white,
@@ -389,9 +412,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                         )
                             : Text(
-                          (_firstNameController.text.isNotEmpty
-                              ? _firstNameController.text[0].toUpperCase()
-                              : 'U'),
+                          (_firstNameController?.text.isNotEmpty ?? false)
+                              ? _firstNameController!.text[0].toUpperCase()
+                              : 'U',
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             fontSize: screenHeight * 0.06,
                             color: Colors.white,
