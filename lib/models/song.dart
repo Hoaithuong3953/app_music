@@ -54,7 +54,8 @@ class Song {
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
-    print('Song.fromJson: $json'); // Debug
+    print('Song.fromJson input: $json'); // Debug input JSON
+
     final genreList = (json['genre'] as List<dynamic>?) ?? [];
     final genreNamesList = genreList.map((e) {
       if (e is Map<String, dynamic> && e['title'] != null) {
@@ -65,6 +66,20 @@ class Song {
         return 'Thể loại không xác định';
       }
     }).toList();
+
+    // Safely convert string to int for numeric fields
+    int parseInt(dynamic value, String fieldName) {
+      try {
+        if (value == null) return 0;
+        if (value is int) return value;
+        if (value is String) return int.tryParse(value) ?? 0;
+        print('Warning: Invalid $fieldName value: $value (type: ${value.runtimeType})');
+        return 0;
+      } catch (e) {
+        print('Error parsing $fieldName: $e');
+        return 0;
+      }
+    }
 
     return Song(
       id: json['_id']?.toString() ?? '',
@@ -86,15 +101,22 @@ class Song {
       slugify: json['slugify']?.toString(),
       url: json['url']?.toString(),
       coverImage: json['coverImage']?.toString(),
-      views: json['views']?.toInt() ?? 0,
-      dailyViews: json['dailyViews']?.toInt() ?? 0,
-      weeklyViews: json['weeklyViews']?.toInt() ?? 0,
-      trendingScore: json['trendingScore']?.toInt() ?? 0,
+      views: parseInt(json['views'], 'views'),
+      dailyViews: parseInt(json['dailyViews'], 'dailyViews'),
+      weeklyViews: parseInt(json['weeklyViews'], 'weeklyViews'),
+      trendingScore: parseInt(json['trendingScore'], 'trendingScore'),
       lastReset: DateTime.tryParse(json['lastReset']?.toString() ?? '') ?? DateTime.now(),
       likes: (json['likes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       dislikes: (json['dislikes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      comments: (json['comments'] as List<dynamic>?)?.map((e) => Comment.fromJson(e)).toList() ?? [],
-      isPublic: json['isPublic'] ?? true,
+      comments: (json['comments'] as List<dynamic>?)?.map((e) {
+        try {
+          return Comment.fromJson(e);
+        } catch (e) {
+          print('Error parsing comment: $e');
+          return Comment(user: '', text: 'Invalid comment', createdAt: DateTime.now());
+        }
+      }).toList() ?? [],
+      isPublic: json['isPublic'] is bool ? json['isPublic'] : true,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );

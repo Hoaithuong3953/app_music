@@ -56,117 +56,114 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
       print('Fetching artist with ID: ${widget.artistId}');
       final fetchedArtistData = await _artistService.getArtistById(widget.artistId, token: token);
       print('Fetched Artist Data: $fetchedArtistData');
-      print('Artist Songs: ${fetchedArtistData['artist'].songs}');
-      print('Artist Albums: ${fetchedArtistData['artist'].albums}');
-      print('Artist Genres: ${fetchedArtistData['artist'].genres}');
 
       List<Map<String, dynamic>> fetchedSongs = [];
       List<Map<String, dynamic>> fetchedAlbums = [];
       List<Map<String, dynamic>> fetchedGenres = [];
 
       // Lấy danh sách bài hát
-      if (fetchedArtistData['artist'].songs != null && fetchedArtistData['artist'].songs.isNotEmpty) {
-        final List<String> songIds = (fetchedArtistData['artist'].songs as List<dynamic>)
-            .where((song) => song != null)
-            .map((song) {
-              final songId = song is Map ? song['_id']?.toString() ?? song.toString() : song.toString();
-              print('Song ID from artist: $songId (Type: ${songId.runtimeType})');
-              return songId;
-            })
-            .toList();
-        print('Song IDs: $songIds');
+      final artist = fetchedArtistData['artist'] as Artist;
+      if (artist.songs.isNotEmpty) {
+        final songIds = artist.songs.map((id) => id.trim()).toList();
+        print('Song IDs: $songIds (Count: ${songIds.length})');
+        try {
+          // Fetch all songs, handling pagination
+          int page = 1;
+          const limit = 100;
+          List<Map<String, dynamic>> allSongs = [];
+          while (true) {
+            final songsData = await _songService.getAllSongs(
+              token: token,
+              fields: 'title,artist,coverImage',
+              songId: songIds.join(','),
+              page: page,
+              limit: limit,
+            );
+            print('Songs Data (Page $page): $songsData');
+            final pageSongs = songsData['songs'] as List<dynamic>;
+            print('Songs Returned (Page $page): ${pageSongs.length}');
+            allSongs.addAll(pageSongs.cast<Map<String, dynamic>>());
 
-        if (songIds.isNotEmpty) {
-          final songsData = await _songService.getAllSongs(
-            token: token,
-            fields: 'title,artist,coverImage',
-          );
-          print('Songs Data: $songsData');
-          print('Songs Data Type: ${songsData.runtimeType}');
+            if (pageSongs.length < limit) break; // No more pages
+            page++;
+          }
 
-          fetchedSongs = (songsData['songs'] as List<dynamic>)
-              .where((json) {
-                final song = json['song'] as Song?;
-                final songId = song?.id?.toString();
-                print('Song ID from songsData: $songId (Type: ${songId.runtimeType})');
-                final matches = songId != null && songIds.contains(songId);
-                print('Matches for Song ID $songId: $matches');
-                return matches;
-              })
-              .cast<Map<String, dynamic>>()
-              .toList();
-          print('Fetched Songs: $fetchedSongs');
+          fetchedSongs = allSongs.where((json) {
+            final song = json['song'] as Song?;
+            final songId = song?.id?.trim();
+            final matches = songId != null && songIds.contains(songId);
+            print('Song ID: $songId, Title: ${song?.title}, Matches: $matches');
+            return matches;
+          }).toList();
+          print('Fetched Songs: $fetchedSongs (Count: ${fetchedSongs.length})');
+        } catch (e) {
+          print('Error fetching songs: $e');
+          errorMessage = 'Không thể tải danh sách bài hát: $e';
         }
+      } else {
+        print('No songs associated with artist.');
       }
 
       // Lấy danh sách album
-      if (fetchedArtistData['artist'].albums != null && fetchedArtistData['artist'].albums.isNotEmpty) {
-        final List<String> albumIds = (fetchedArtistData['artist'].albums as List<dynamic>)
-            .where((album) => album != null)
-            .map((album) {
-              final albumId = album is Map ? album['_id']?.toString() ?? album.toString() : album.toString();
-              print('Album ID from artist: $albumId (Type: ${albumId.runtimeType})');
-              return albumId;
-            })
-            .toList();
-        print('Album IDs: $albumIds');
-
-        if (albumIds.isNotEmpty) {
+      if (artist.albums.isNotEmpty) {
+        final albumIds = artist.albums.map((id) => id.trim()).toList();
+        print('Album IDs: $albumIds (Count: ${albumIds.length})');
+        try {
           final albumsData = await _albumService.getAllAlbums(
             token: token,
             fields: 'title,artist',
           );
           print('Albums Data: $albumsData');
-          print('Albums Data Type: ${albumsData.runtimeType}');
+          print('Albums Returned: ${(albumsData as List<dynamic>).length}');
 
           fetchedAlbums = (albumsData as List<dynamic>)
               .where((json) {
                 final album = json['album'] as Album?;
-                final albumId = album?.id?.toString();
-                print('Album ID from albumsData: $albumId (Type: ${albumId.runtimeType})');
+                final albumId = album?.id?.trim();
                 final matches = albumId != null && albumIds.contains(albumId);
-                print('Matches for Album ID $albumId: $matches');
+                print('Album ID: $albumId, Title: ${album?.title}, Matches: $matches');
                 return matches;
               })
               .cast<Map<String, dynamic>>()
               .toList();
-          print('Fetched Albums: $fetchedAlbums');
+          print('Fetched Albums: $fetchedAlbums (Count: ${fetchedAlbums.length})');
+        } catch (e) {
+          print('Error fetching albums: $e');
+          errorMessage = errorMessage != null ? '$errorMessage\nKhông thể tải danh sách album: $e' : 'Không thể tải danh sách album: $e';
         }
+      } else {
+        print('No albums associated with artist.');
       }
 
       // Lấy danh sách thể loại
-      if (fetchedArtistData['artist'].genres != null && fetchedArtistData['artist'].genres.isNotEmpty) {
-        final List<String> genreIds = (fetchedArtistData['artist'].genres as List<dynamic>)
-            .where((genre) => genre != null)
-            .map((genre) {
-              final genreId = genre is Map ? genre['_id']?.toString() ?? genre.toString() : genre.toString();
-              print('Genre ID from artist: $genreId (Type: ${genreId.runtimeType})');
-              return genreId;
-            })
-            .toList();
-        print('Genre IDs: $genreIds');
-
-        if (genreIds.isNotEmpty) {
+      if (artist.genres.isNotEmpty) {
+        final genreIds = artist.genres.map((id) => id.trim()).toList();
+        print('Genre IDs: $genreIds (Count: ${genreIds.length})');
+        try {
           final genresData = await _genreService.getAllGenres(
             token: token,
             fields: 'title',
           );
           print('Genres Data: $genresData');
-          print('Genres Data Type: ${genresData.runtimeType}');
+          print('Genres Returned: ${(genresData as List<dynamic>).length}');
 
           fetchedGenres = (genresData as List<dynamic>)
               .where((json) {
                 final genre = json['genre'] as Genre?;
-                final genreId = genre?.id?.toString();
-                print('Genre ID from genresData: $genreId (Type: ${genreId.runtimeType})');
+                final genreId = genre?.id?.trim();
                 final matches = genreId != null && genreIds.contains(genreId);
-                print('Matches for Genre ID $genreId: $matches');
+                print('Genre ID: $genreId, Title: ${genre?.title}, Matches: $matches');
                 return matches;
               })
               .cast<Map<String, dynamic>>()
               .toList();
-          print('Fetched Genres: $fetchedGenres');
+          print('Fetched Genres: $fetchedGenres (Count: ${fetchedGenres.length})');
+        } catch (e) {
+          print('Error fetching genres: $e');
+          errorMessage = errorMessage != null ? '$errorMessage\nKhông thể tải danh sách thể loại: $e' : 'Không thể tải danh sách thể loại: $e';
         }
+      } else {
+        print('No genres associated with artist.');
       }
 
       if (mounted) {
@@ -181,7 +178,7 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          errorMessage = e.toString();
+          errorMessage = errorMessage != null ? '$errorMessage\nLỗi tải thông tin nghệ sĩ: $e' : 'Lỗi tải thông tin nghệ sĩ: $e';
           artistData = null;
           songs = [];
           albums = [];
@@ -655,6 +652,11 @@ class AdminShowArtistPageState extends State<AdminShowArtistPage> {
                       Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
                       const SizedBox(height: 16),
                       Text('Lỗi: $errorMessage', style: const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: fetchArtistDetails,
+                        child: const Text('Thử lại'),
+                      ),
                     ],
                   ),
                 )
